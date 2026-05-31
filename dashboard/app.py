@@ -720,6 +720,7 @@ def render_alerts(alerts: pd.DataFrame) -> None:
 # --- main -------------------------------------------------------------------
 
 def render_live_submit() -> None:
+    submission: dict[str, Any] | None = None
     with st.expander("Submit a new complaint (runs all 6 agents in real time)",
                      expanded=False):
         with st.form("live_submit"):
@@ -743,18 +744,22 @@ def render_live_submit() -> None:
                                          step=100.0, value=0.0)
             submitted = st.form_submit_button("Run pipeline", type="primary",
                                               use_container_width=True)
-
         if submitted:
             if not text.strip():
                 st.error("Please enter a complaint text.")
-                return
-            _run_live_pipeline({
-                "complaint_text": text.strip(),
-                "customer_name": name.strip() or "Walk-in",
-                "channel": channel, "language": language,
-                "account_type": account_type, "location": location.strip() or None,
-                "amount_involved": float(amount) if amount > 0 else None,
-            })
+            else:
+                submission = {
+                    "complaint_text": text.strip(),
+                    "customer_name": name.strip() or "Walk-in",
+                    "channel": channel, "language": language,
+                    "account_type": account_type, "location": location.strip() or None,
+                    "amount_involved": float(amount) if amount > 0 else None,
+                }
+
+    # Run the pipeline OUTSIDE the expander so st.status / progress widgets are
+    # not nested inside a non-permitted container (Streamlit >=1.41 enforces this).
+    if submission is not None:
+        _run_live_pipeline(submission)
 
 
 def _run_live_pipeline(raw: dict[str, Any]) -> None:
@@ -768,10 +773,22 @@ def _run_live_pipeline(raw: dict[str, Any]) -> None:
     new_id = ingest_new_complaint(raw)
     st.info(f"Created complaint **{new_id}** -- now processing...")
 
-    status_box = st.status("Running agents...", expanded=True)
+    # Plain markdown placeholder + progress bar -- works inside any container
+    # and on every Streamlit version (no st.status nesting restrictions).
+    status_box = st.empty()
     progress = st.progress(0.0)
     agent_lines: list[str] = []
     step_count = {"i": 0, "total": 6}
+
+    def _render():
+        status_box.markdown(
+            "<div style='padding:10px 14px;border:1px solid #1F293733;"
+            "border-radius:8px;background:#FFFDEB;font-family:monospace;"
+            "font-size:13px;color:#1F2937;white-space:pre-wrap'>"
+            + "\n".join(agent_lines)
+            + "</div>",
+            unsafe_allow_html=True,
+        )
 
     def on_step(label, status, payload):
         if status == "started":
@@ -780,23 +797,24 @@ def _run_live_pipeline(raw: dict[str, Any]) -> None:
             agent_lines.append(f"-- {label}: skipped (duplicate)")
             step_count["i"] += 1
         elif status == "done":
-            # Replace the last "working" line with a check.
             if agent_lines and agent_lines[-1].startswith(f"-> {label}"):
                 agent_lines[-1] = f"OK {label}: done"
             else:
                 agent_lines.append(f"OK {label}: done")
             step_count["i"] += 1
-        status_box.markdown("\n\n".join(agent_lines))
+        _render()
         progress.progress(min(step_count["i"] / step_count["total"], 1.0))
 
     try:
         result = process_one_streaming(new_id, on_step=on_step)
     except Exception as e:
-        status_box.update(label="Pipeline failed", state="error")
+        agent_lines.append(f"!! Pipeline failed: {type(e).__name__}: {e}")
+        _render()
         st.error(f"Error: {e}")
         return
 
-    status_box.update(label="All agents finished", state="complete")
+    agent_lines.append("ALL AGENTS FINISHED -- result below")
+    _render()
     progress.progress(1.0)
 
     cls = result["classification"]
