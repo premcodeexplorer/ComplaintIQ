@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"from database import db; rows=db.list_complaints\\(limit=3\\); [print\\(r['id'], r['customer_name'], r['channel'], '|', r['complaint_text'][:60]\\) for r in rows]; print\\('unprocessed:', len\\(db.list_unprocessed\\(\\)\\)\\)\")",
+      "Bash(python -X utf8 -m agents.response_drafter)",
+      "Bash(python -c ' *)",
+      "Bash(pdftotext -layout E:/ComplaintIQ/complaintio.pdf E:/ComplaintIQ/_pdf_text.txt)",
+      "Bash(python -X utf8 -c ' *)"
+    ]
+  }
+}

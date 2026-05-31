@@ -1,0 +1,18 @@
+{
+  "sla_days": {
+    "UPI": 5,
+    "ATM": 5,
+    "Card": 7,
+    "NetBanking": 7,
+    "Loan": 30,
+    "General": 30
+  },
+  "source": "RBI Master Circular on Customer Service in Banks (2024) + RBI Integrated Ombudsman Scheme 2021",
+  "severity_multiplier": {
+    "Critical": 0.5,
+    "High": 0.7,
+    "Medium": 1.0,
+    "Low": 1.2
+  },
+  "notes": "Effective SLA = base_sla_days * severity_multiplier. Critical issues must resolve in ~half the standard window."
+}

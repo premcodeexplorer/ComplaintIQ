@@ -1,0 +1,125 @@
+{
+  "winner": "XGBoost(tuned)",
+  "leaderboard": [
+    {
+      "model": "XGBoost(tuned)",
+      "cv_auc_mean": 0.9233,
+      "cv_auc_std": 0.0183,
+      "cv_acc_mean": 0.8213,
+      "fold_aucs": [
+        0.9076,
+        0.9374,
+        0.9202,
+        0.901,
+        0.9501
+      ]
+    },
+    {
+      "model": "Stacking",
+      "cv_auc_mean": 0.9101,
+      "cv_auc_std": 0.0227,
+      "cv_acc_mean": 0.82,
+      "fold_aucs": [
+        0.8745,
+        0.9343,
+        0.9115,
+        0.8966,
+        0.9333
+      ]
+    },
+    {
+      "model": "GradientBoosting",
+      "cv_auc_mean": 0.9088,
+      "cv_auc_std": 0.0081,
+      "cv_acc_mean": 0.8137,
+      "fold_aucs": [
+        0.9026,
+        0.9192,
+        0.9024,
+        0.9015,
+        0.9183
+      ]
+    },
+    {
+      "model": "XGBoost",
+      "cv_auc_mean": 0.9057,
+      "cv_auc_std": 0.0141,
+      "cv_acc_mean": 0.8112,
+      "fold_aucs": [
+        0.8864,
+        0.9137,
+        0.907,
+        0.8949,
+        0.9266
+      ]
+    },
+    {
+      "model": "RandomForest",
+      "cv_auc_mean": 0.9043,
+      "cv_auc_std": 0.0313,
+      "cv_acc_mean": 0.81,
+      "fold_aucs": [
+        0.8515,
+        0.9354,
+        0.9136,
+        0.8883,
+        0.9329
+      ]
+    },
+    {
+      "model": "LightGBM",
+      "cv_auc_mean": 0.9036,
+      "cv_auc_std": 0.0148,
+      "cv_acc_mean": 0.8138,
+      "fold_aucs": [
+        0.886,
+        0.9192,
+        0.9043,
+        0.8878,
+        0.9208
+      ]
+    }
+  ],
+  "feature_importances": {
+    "num__is_duplicate": 0.1045,
+    "num__pct_sla_elapsed": 0.09942,
+    "num__days_to_sla": 0.09288,
+    "num__severity_score": 0.07374,
+    "cat__sentiment_Polite": 0.05947,
+    "cat__account_type_loan": 0.04457,
+    "num__sentiment_score": 0.02966,
+    "cat__account_type_savings": 0.02811,
+    "cat__severity_Critical": 0.02804,
+    "num__hours_since_filed": 0.02121,
+    "cat__category_Loan": 0.02093,
+    "cat__sentiment_Frustrated": 0.02061,
+    "num__complaint_word_count": 0.01984,
+    "num__customer_complaint_count": 0.01976,
+    "cat__channel_branch": 0.01951,
+    "num__day_of_week": 0.01916,
+    "cat__channel_bank_portal": 0.01872,
+    "num__is_weekend_filed": 0.01769,
+    "num__amount_involved": 0.0176,
+    "cat__channel_phone_call": 0.01759,
+    "cat__channel_twitter": 0.01734,
+    "num__is_high_value": 0.01686,
+    "cat__language_marathi": 0.01666,
+    "num__complaint_text_length": 0.01657,
+    "cat__category_ATM": 0.0163,
+    "cat__sentiment_Angry": 0.01619,
+    "cat__account_type_fd": 0.01617,
+    "cat__channel_whatsapp": 0.01599,
+    "num__is_high_amount": 0.01587,
+    "cat__language_hindi": 0.01366
+  },
+  "training_rows": 1000,
+  "trained_at": "2026-05-30T04:58:09.298886Z",
+  "holdout_auc": 0.9378,
+  "holdout_accuracy": 0.84,
+  "xgb_best_params": {
+    "learning_rate": 0.05,
+    "max_depth": 3,
+    "min_child_weight": 1,
+    "n_estimators": 200
+  }
+}

@@ -1,0 +1,39 @@
+# ------------------------------------------------------------
+#  ComplaintIQ -- .gitignore
+#  Keep the DB + joblib models tracked: they're needed for the
+#  Streamlit Cloud deployment so the dashboard works on first boot.
+# ------------------------------------------------------------
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Secrets (NEVER commit)
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+!.streamlit/secrets.toml.example
+
+# Vector store (runtime artefact -- rebuilt by pipeline)
+data/chroma_db/
+
+# Editor / OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local-only artefacts (intermediate logs etc.)
+_pipeline_run.log
+_pipeline_1000.log
+_new15_run.log
+data/_complaints_217_backup.json
