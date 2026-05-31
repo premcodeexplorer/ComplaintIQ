@@ -101,7 +101,6 @@ ComplaintIQ/
 ├── .streamlit/
 │   ├── config.toml                      Brand palette theme
 │   └── secrets.toml.example             Sample for Streamlit Cloud secrets
-├── .env.example                         GROQ_API_KEY = "gsk_..."
 ├── .gitignore                           keeps .env + chroma_db + caches out
 ├── requirements.txt
 └── README.md
@@ -116,8 +115,10 @@ ComplaintIQ/
 pip install -r requirements.txt
 
 # 2. Add your Groq API key (free tier works)
-cp .env.example .env
-# then edit .env and paste your key
+#    Create a file named `.env` in the project root with these two lines:
+#
+#       GROQ_API_KEY=gsk_your_key_here
+#       GROQ_MODEL=llama-3.3-70b-versatile
 ```
 
 Get a free Groq key at https://console.groq.com.

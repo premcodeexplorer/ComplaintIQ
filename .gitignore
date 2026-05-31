@@ -19,7 +19,6 @@ env/
 # Secrets (NEVER commit)
 .env
 .env.*
-!.env.example
 .streamlit/secrets.toml
 !.streamlit/secrets.toml.example
 
