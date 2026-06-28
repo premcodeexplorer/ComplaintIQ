@@ -56,7 +56,8 @@ def extract(raw: dict[str, Any]) -> dict[str, Any]:
         text=text,
     )
     try:
-        data = chat_json(prompt, system=SYSTEM, temperature=0.0, max_tokens=400)
+        data = chat_json(prompt, system=SYSTEM, temperature=0.0, max_tokens=400,
+                         pii_values=[raw.get("customer_name")])
     except Exception as e:
         return _fallback(raw, error=str(e))
 
