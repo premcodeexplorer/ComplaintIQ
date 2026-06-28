@@ -1345,7 +1345,7 @@ def _feedback_widget(col, row, field: str, current: str | None, choices: list[st
             st.rerun()
 
 
-def render_login_screen(controller) -> None:
+def render_login_screen() -> None:
     st.markdown(
         f"<h1 style='text-align: center; color:{PAL_INK}; margin-top: 10vh;'>"
         f"<span style='color:{PAL_BLUE}'>Complaint</span>"
@@ -1373,8 +1373,6 @@ def render_login_screen(controller) -> None:
                         session = sign_in(email, password)
                         update_last_login(session["user"]["id"])
                         st.session_state["admin_session"] = session
-                        # Store for 7 days
-                        controller.set("complaintiq_admin_session", session, max_age=604800)
                         st.rerun()
                     except RuntimeError as e:
                         st.error(str(e))
@@ -1388,13 +1386,21 @@ def main() -> None:
     from streamlit_cookies_controller import CookieController
     controller = CookieController()
     
+    # 1. Fetch the cookie
+    saved = controller.get("complaintiq_admin_session")
+    
+    # 2. Sync cookie to session_state if we just loaded the page
     if "admin_session" not in st.session_state:
-        saved = controller.get("complaintiq_admin_session")
         if saved:
             st.session_state["admin_session"] = saved
 
+    # 3. Sync session_state to cookie if we just logged in (saved is None)
+    if st.session_state.get("admin_session") and not saved:
+        controller.set("complaintiq_admin_session", st.session_state["admin_session"], max_age=604800)
+
+    # 4. If still not logged in, show login screen
     if not st.session_state.get("admin_session"):
-        render_login_screen(controller)
+        render_login_screen()
         return
     st.markdown(
         f"<h1 style='color:{PAL_INK};margin-bottom:0'>"
