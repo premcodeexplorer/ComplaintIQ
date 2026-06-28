@@ -8,18 +8,20 @@ Clusters complaint embeddings with KMeans and flags any cluster that:
 This catches systemic issues like "47 UPI failures from Nagpur over the past 7
 days = gateway problem" that no single complaint would surface on its own.
 
-Embeddings are reused from the Supabase pgvector column.
+Embeddings are reused from the Duplicate Detector's ChromaDB store -- this
+agent does NOT re-embed.
 """
 from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 from sklearn.cluster import KMeans
 
-from database import db
+from . import duplicate_detector as dd
 
 MIN_CLUSTER_SIZE = 5
 DOMINANCE_THRESHOLD = 0.60   # 60% of cluster must share one (category, location)
@@ -27,34 +29,16 @@ DEFAULT_K = 12
 
 
 def _collect_vectors() -> tuple[list[str], np.ndarray, list[dict[str, Any]]]:
-    if not db.IS_POSTGRES:
-        return [], np.zeros((0, 384), dtype=np.float32), []
-        
-    query = """
-        SELECT id, category, location, embedding 
-        FROM complaints 
-        WHERE embedding IS NOT NULL
-    """
-    with db.connect() as c:
-        rows = db._exec(c, query).fetchall()
-        
-    ids = []
-    embs = []
-    metas = []
-    
-    for row in rows:
-        ids.append(row["id"])
-        embs.append(row["embedding"])
-        metas.append({
-            "category": row["category"],
-            "location": row["location"],
-        })
-        
-    if not embs:
+    coll = dd._get_collection()
+    # Chroma `get` returns everything when no filter / no limit specified.
+    res = coll.get(include=["embeddings", "metadatas"])
+    ids = list(res.get("ids") or [])
+    embs = res.get("embeddings")
+    metas = list(res.get("metadatas") or [])
+    if embs is None or len(embs) == 0:
         arr = np.zeros((0, 384), dtype=np.float32)
     else:
         arr = np.asarray(embs, dtype=np.float32)
-        
     return ids, arr, metas
 
 
