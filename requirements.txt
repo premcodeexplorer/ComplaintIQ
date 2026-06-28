@@ -3,7 +3,7 @@ uvicorn[standard]==0.32.1
 streamlit==1.40.2
 groq==0.13.0
 sentence-transformers==3.3.1
-chromadb==0.5.23
+pgvector>=0.2.5
 onnxruntime==1.20.1
 tf-keras==2.15.1
 xgboost==3.2.0
@@ -20,3 +20,4 @@ joblib==1.4.2
 python-dotenv==1.0.1
 supabase>=2.3.0
 psycopg2-binary==2.9.10
+streamlit-cookies-controller==0.0.4

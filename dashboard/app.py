@@ -958,7 +958,7 @@ def render_alert_banners(df: pd.DataFrame, alerts: pd.DataFrame) -> None:
         )
 
 
-def render_sidebar(df: pd.DataFrame) -> None:
+def render_sidebar(df: pd.DataFrame, controller) -> None:
     session = st.session_state.get("admin_session")
     if session:
         profile = session.get("profile", {})
@@ -967,6 +967,7 @@ def render_sidebar(df: pd.DataFrame) -> None:
         if st.sidebar.button("Sign Out", use_container_width=True):
             sign_out(session)
             st.session_state.pop("admin_session", None)
+            controller.remove("complaintiq_admin_session")
             st.rerun()
         st.sidebar.divider()
 
@@ -1344,7 +1345,7 @@ def _feedback_widget(col, row, field: str, current: str | None, choices: list[st
             st.rerun()
 
 
-def render_login_screen() -> None:
+def render_login_screen(controller) -> None:
     st.markdown(
         f"<h1 style='text-align: center; color:{PAL_INK}; margin-top: 10vh;'>"
         f"<span style='color:{PAL_BLUE}'>Complaint</span>"
@@ -1372,6 +1373,8 @@ def render_login_screen() -> None:
                         session = sign_in(email, password)
                         update_last_login(session["user"]["id"])
                         st.session_state["admin_session"] = session
+                        # Store for 7 days
+                        controller.set("complaintiq_admin_session", session, max_age=604800)
                         st.rerun()
                     except RuntimeError as e:
                         st.error(str(e))
@@ -1382,8 +1385,16 @@ def render_login_screen() -> None:
 def main() -> None:
     st.markdown(_GLOBAL_CSS, unsafe_allow_html=True)
     
+    from streamlit_cookies_controller import CookieController
+    controller = CookieController()
+    
+    if "admin_session" not in st.session_state:
+        saved = controller.get("complaintiq_admin_session")
+        if saved:
+            st.session_state["admin_session"] = saved
+
     if not st.session_state.get("admin_session"):
-        render_login_screen()
+        render_login_screen(controller)
         return
     st.markdown(
         f"<h1 style='color:{PAL_INK};margin-bottom:0'>"
@@ -1401,7 +1412,7 @@ def main() -> None:
                    "`python -m pipeline.orchestrator` to process.")
         return
 
-    render_sidebar(df)
+    render_sidebar(df, controller)
     render_kpis(df)
     render_alert_banners(df, alerts)
     render_live_submit()

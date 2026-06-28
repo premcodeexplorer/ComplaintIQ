@@ -64,6 +64,8 @@ CREATE INDEX IF NOT EXISTS idx_complaints_location ON complaints(location);
 
 if IS_POSTGRES:
     SCHEMA_SPECIFIC = """
+    CREATE EXTENSION IF NOT EXISTS vector;
+    
     CREATE TABLE IF NOT EXISTS root_cause_alerts (
         id          SERIAL PRIMARY KEY,
         cluster_id  INTEGER,
@@ -119,6 +121,11 @@ def connect():
     if IS_POSTGRES:
         conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
         try:
+            import pgvector.psycopg2
+            try:
+                pgvector.psycopg2.register_vector(conn)
+            except psycopg2.ProgrammingError:
+                pass # extension might not exist yet
             yield conn
             conn.commit()
         finally:
@@ -350,6 +357,7 @@ def ensure_schema() -> None:
             ("sentiment_confidence", "TEXT"),
             ("priority_score",       "INTEGER"),
             ("resolved_at",          "TEXT"),
+            ("embedding",            "vector(384)"),
         ):
             if col not in existing:
                 if IS_POSTGRES:
