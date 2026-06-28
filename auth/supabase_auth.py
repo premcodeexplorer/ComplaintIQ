@@ -147,8 +147,8 @@ def get_user_profile(user_id: str) -> dict[str, Any] | None:
         "email":      row[1],
         "full_name":  row[2],
         "role":       row[3],
-        "created_at": row[4],
-        "last_login": row[5],
+        "created_at": row[4].isoformat() if row[4] else None,
+        "last_login": row[5].isoformat() if row[5] else None,
     }
 
 
