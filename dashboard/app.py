@@ -37,6 +37,7 @@ if str(ROOT) not in sys.path:
 
 from database import db  # noqa: E402
 from dashboard import rbi_report  # noqa: E402
+from auth.supabase_auth import sign_in, sign_out, update_last_login  # noqa: E402
 
 st.set_page_config(
     page_title="ComplaintIQ -- Union Bank of India",
@@ -907,6 +908,17 @@ def render_alert_banners(df: pd.DataFrame, alerts: pd.DataFrame) -> None:
 
 
 def render_sidebar(df: pd.DataFrame) -> None:
+    session = st.session_state.get("admin_session")
+    if session:
+        profile = session.get("profile", {})
+        st.sidebar.markdown(f"👤 **{profile.get('full_name', 'Admin')}**")
+        st.sidebar.caption(f"{profile.get('email', '')}")
+        if st.sidebar.button("Sign Out", use_container_width=True):
+            sign_out(session)
+            st.session_state.pop("admin_session", None)
+            st.rerun()
+        st.sidebar.divider()
+
     st.sidebar.header("RBI Compliance Report")
     stats = rbi_report.summary_stats(df)
     st.sidebar.metric("Total complaints", stats["total"])
@@ -1281,8 +1293,47 @@ def _feedback_widget(col, row, field: str, current: str | None, choices: list[st
             st.rerun()
 
 
+def render_login_screen() -> None:
+    st.markdown(
+        f"<h1 style='text-align: center; color:{PAL_INK}; margin-top: 10vh;'>"
+        f"<span style='color:{PAL_BLUE}'>Complaint</span>"
+        f"<span style='color:{PAL_RED}'>IQ</span></h1>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(f"<p style='text-align: center; color:{PAL_INK};'>Bank Admin Portal</p>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown(f"""
+        <div style="background-color:{PAL_SAND}55; padding: 20px; border-radius: 10px; border: 1px solid {PAL_BLUE}33; margin-top: 20px;">
+        """, unsafe_allow_html=True)
+        
+        with st.form("login_form"):
+            email = st.text_input("Email", placeholder="admin@bank.com")
+            password = st.text_input("Password", type="password")
+            submit = st.form_submit_button("Sign In", use_container_width=True)
+            
+            if submit:
+                if not email or not password:
+                    st.error("Please enter both email and password.")
+                else:
+                    try:
+                        session = sign_in(email, password)
+                        update_last_login(session["user"]["id"])
+                        st.session_state["admin_session"] = session
+                        st.rerun()
+                    except RuntimeError as e:
+                        st.error(str(e))
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
 def main() -> None:
     st.markdown(_GLOBAL_CSS, unsafe_allow_html=True)
+    
+    if not st.session_state.get("admin_session"):
+        render_login_screen()
+        return
     st.markdown(
         f"<h1 style='color:{PAL_INK};margin-bottom:0'>"
         f"<span style='color:{PAL_BLUE}'>Complaint</span>"
