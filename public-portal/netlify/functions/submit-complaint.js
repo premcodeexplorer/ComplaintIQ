@@ -97,7 +97,7 @@ export const handler = async (event, context) => {
     console.error('Function Error:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Failed to process complaint. Please try again.' })
+      body: JSON.stringify({ error: error.message || error.toString() || 'Unknown error' })
     };
   }
 };
