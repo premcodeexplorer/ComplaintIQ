@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { v4 as uuidv4 } from 'uuid';
 
 // Simple in-memory rate limiter (Note: resets on serverless cold starts)
 // For enterprise rate-limiting, use Upstash Redis or a Supabase rate_limits table.
@@ -62,9 +61,10 @@ export const handler = async (event, context) => {
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Prepare payload
-    const complaintId = `PORTAL-${uuidv4().slice(0, 8).toUpperCase()}`;
+    // Prepare payload using native Node crypto (no dependency required)
+    const complaintId = `PORTAL-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
     const amount = body.amount_involved ? parseFloat(body.amount_involved) : null;
+
 
     const { error } = await supabase
       .from('complaints')
