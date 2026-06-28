@@ -37,12 +37,22 @@ def _get_collection():
     global _chroma_client, _collection
     if _collection is None:
         import chromadb
+        from chromadb.utils import embedding_functions as _ef
 
         CHROMA_DIR.mkdir(parents=True, exist_ok=True)
         _chroma_client = chromadb.PersistentClient(path=str(CHROMA_DIR))
-        # Cosine space -> chroma returns "distance" = 1 - cosine_similarity.
+        # Pin the embedding function to sentence-transformers so Chroma never
+        # falls back to its DEFAULT ONNX embedder. That default needs
+        # onnxruntime, whose DLL is fragile under Windows load order and throws
+        # a misleading "onnxruntime not installed" error inside Streamlit. We
+        # pass embeddings explicitly on every call, so this mainly blocks the
+        # ONNX import path. Cosine space -> distance = 1 - cosine_similarity.
         _collection = _chroma_client.get_or_create_collection(
-            name=COLLECTION, metadata={"hnsw:space": "cosine"}
+            name=COLLECTION,
+            metadata={"hnsw:space": "cosine"},
+            embedding_function=_ef.SentenceTransformerEmbeddingFunction(
+                model_name=MODEL_NAME
+            ),
         )
     return _collection
 

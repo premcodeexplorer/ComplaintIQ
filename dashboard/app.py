@@ -22,6 +22,15 @@ _os.environ.setdefault("USE_TF", "0")
 _os.environ.setdefault("USE_FLAX", "0")
 _os.environ.setdefault("TRANSFORMERS_NO_ADVISORY_WARNINGS", "1")
 
+# Preload torch FIRST -- before pandas / numpy / chromadb load their own
+# MKL/OpenMP runtimes -- so torch's c10.dll wins the Windows DLL init race.
+# Without this, Agent 3 (sentence-transformers) triggers a late torch import
+# that fails with "WinError 1114 ... c10.dll". See orchestrator.py / api/main.py.
+try:
+    import torch  # noqa: F401
+except Exception:
+    pass
+
 import sys
 from datetime import datetime, date
 from pathlib import Path
@@ -841,12 +850,54 @@ def _run_live_pipeline(raw: dict[str, Any]) -> None:
         st.caption("No draft generated -- complaint was flagged as a duplicate of "
                    f"{dup['duplicate_of']} (similarity {dup['similarity']}).")
 
+    _render_pii_panel(raw)
+
     if st.button("Re-run Root-Cause clustering (Agent 6)"):
         n = refresh_root_cause()
         st.success(f"Refreshed -- {n} alerts now in the database.")
         load_alerts.clear()
 
     load_complaints.clear()
+
+
+def _render_pii_panel(raw: dict[str, Any]) -> None:
+    """Show raw-vs-masked text so reviewers can see that customer identifiers
+    are stripped before anything is sent to the external LLM."""
+    import os
+    from agents import pii as _pii
+
+    masking_on = os.getenv("PII_MASKING", "1").strip().lower() not in (
+        "0", "false", "no", "off", "",
+    )
+    text = raw.get("complaint_text") or ""
+    masker = _pii.PIIMasker()
+    masked = masker.mask(text, known_values=[raw.get("customer_name")])
+    mapping = masker.mapping
+
+    st.markdown("#### 🔒 Data privacy — what actually leaves for the LLM")
+    if not masking_on:
+        st.warning("PII masking is currently **OFF** (`PII_MASKING=0`) — raw text "
+                   "is being sent. Enable it for production.")
+    elif mapping:
+        st.caption(f"{len(mapping)} identifier(s) masked before the text was sent "
+                   "to Groq. The real values stay in the bank's database.")
+    else:
+        st.caption("No PII identifiers detected in this complaint — nothing to mask.")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**Raw complaint** _(kept in bank DB)_")
+        st.code(text or "(empty)", language=None)
+    with col2:
+        st.markdown("**Sent to LLM** _(PII-masked)_")
+        st.code(masked or "(empty)", language=None)
+
+    if mapping:
+        with st.expander(f"Masking detail ({len(mapping)} item(s))"):
+            for token, original in mapping.items():
+                st.markdown(f"- `{token}`  ⟵  `{original}`")
+        st.caption("The same masking is applied to every field sent to the LLM "
+                   "(name, account type, etc.), not just the complaint text.")
 
 
 def render_alert_banners(df: pd.DataFrame, alerts: pd.DataFrame) -> None:

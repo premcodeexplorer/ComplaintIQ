@@ -78,7 +78,13 @@ class PIIMasker:
         if not text:
             return text or ""
 
-        # 1. Known literal values (customer name + its parts). Names are not
+        # 1. Structured identifiers via regex, in priority order. Done first so
+        #    that an identifier containing the customer's name (e.g. the local
+        #    part of an email) is masked as a whole before name-masking runs.
+        for kind, pattern in _PATTERNS:
+            text = pattern.sub(lambda m, k=kind: self._token(k, m.group(0)), text)
+
+        # 2. Known literal values (customer name + its parts). Names are not
         #    regex-detectable, so we replace them explicitly. Longest first so
         #    "Rahul Sharma" is masked before the lone "Rahul".
         candidates: set[str] = set()
@@ -94,10 +100,6 @@ class PIIMasker:
         for cand in sorted(candidates, key=len, reverse=True):
             token = self._token("NAME", cand)
             text = re.sub(rf"\b{re.escape(cand)}\b", token, text, flags=re.IGNORECASE)
-
-        # 2. Structured identifiers via regex, in priority order.
-        for kind, pattern in _PATTERNS:
-            text = pattern.sub(lambda m, k=kind: self._token(k, m.group(0)), text)
         return text
 
     def unmask(self, text: str | None) -> str:
