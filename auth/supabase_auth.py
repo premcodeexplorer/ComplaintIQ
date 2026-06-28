@@ -79,11 +79,11 @@ def sign_in(email: str, password: str) -> dict[str, Any]:
         raise RuntimeError("Login failed: no session returned.")
 
     session = {
-        "access_token":  resp.session.access_token,
-        "refresh_token": resp.session.refresh_token,
+        "access_token":  str(resp.session.access_token),
+        "refresh_token": str(resp.session.refresh_token),
         "user": {
-            "id":    resp.user.id,
-            "email": resp.user.email,
+            "id":    str(resp.user.id),
+            "email": str(resp.user.email),
         },
     }
 
