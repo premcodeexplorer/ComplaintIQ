@@ -29,7 +29,12 @@ def score(complaint: dict[str, Any]) -> int | None:
         return None
     today_ts = pd.Timestamp(date.today())
     filed = pd.to_datetime(complaint.get("date"), errors="coerce")
-    days_since = (today_ts - filed).days if pd.notna(filed) else 0
+    if pd.notna(filed):
+        if filed.tzinfo is not None:
+            filed = filed.tz_localize(None)
+        days_since = (today_ts - filed).days
+    else:
+        days_since = 0
     customer_count = int(complaint.get("customer_complaint_count") or 0)
     if customer_count == 0:
         try:

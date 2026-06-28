@@ -1405,6 +1405,15 @@ def main() -> None:
     render_kpis(df)
     render_alert_banners(df, alerts)
     render_live_submit()
+    
+    unprocessed_count = len(db.list_unprocessed())
+    if unprocessed_count > 0:
+        if st.button(f"Process {unprocessed_count} Pending Complaints", type="primary"):
+            from pipeline.orchestrator import process_all
+            with st.spinner("Processing pending complaints... This might take a minute."):
+                process_all()
+            st.success(f"Successfully processed {unprocessed_count} complaints!")
+            st.rerun()
     st.divider()
 
     (tab_feed, tab_customer, tab_map, tab_sla, tab_alerts,

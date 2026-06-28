@@ -73,6 +73,8 @@ def _row_for_model(complaint: dict[str, Any]) -> pd.DataFrame:
     text_lower = text.lower()
     amount = float(complaint.get("amount_involved") or 0)
     filed = pd.to_datetime(complaint.get("date"), errors="coerce")
+    if pd.notna(filed) and filed.tzinfo is not None:
+        filed = filed.tz_localize(None)
     weekday = int(filed.weekday()) if pd.notna(filed) else 0
     hours_since = (pd.Timestamp.utcnow().tz_localize(None) - filed).total_seconds() / 3600.0 \
                   if pd.notna(filed) else 0.0
