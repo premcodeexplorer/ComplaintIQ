@@ -36,3 +36,6 @@ _pipeline_run.log
 _pipeline_1000.log
 _new15_run.log
 data/_complaints_217_backup.json
+
+# Local Netlify folder
+.netlify

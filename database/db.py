@@ -12,6 +12,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable
 
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 IS_POSTGRES = bool(DATABASE_URL)
 
