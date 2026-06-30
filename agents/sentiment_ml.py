@@ -72,6 +72,10 @@ def predict(text: str) -> dict[str, Any] | None:
     On failure, the underlying exception text is stashed in `last_error()`."""
     global _last_error
     
+    # [HOTFIX] Disable heavy Roberta model to save 500MB+ RAM on Railway
+    _last_error = "Model disabled to conserve memory on free tier."
+    return None
+
     try:
         pipe = _get_pipeline()
     except Exception as e:
