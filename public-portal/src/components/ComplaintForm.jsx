@@ -192,15 +192,20 @@ export default function ComplaintForm({ user }) {
             )}
 
             {audioBlob && (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.05)', padding: '0.5rem 1rem', borderRadius: '8px' }}>
-                <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <CheckCircle2 size={18} /> Voice Recorded ({formatTime(recordingTime)})
-                </span>
-                <button type="button" onClick={removeAudio} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', textDecoration: 'underline' }}>
-                  Remove
-                </button>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '0.5rem 1rem', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <CheckCircle2 size={18} /> Voice Recorded ({formatTime(recordingTime)})
+                  </span>
+                  <button type="button" onClick={removeAudio} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', textDecoration: 'underline' }}>
+                    Remove
+                  </button>
+                </div>
+                {/* Audio playback to help diagnose silent microphone issues */}
+                <audio controls src={URL.createObjectURL(audioBlob)} style={{ height: '30px', width: '100%' }} />
               </div>
             )}
+
           </div>
 
           <textarea
