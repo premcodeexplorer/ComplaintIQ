@@ -29,10 +29,17 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Optional
 
+import os
+import tempfile
+import urllib.request
+import urllib.parse
+import json
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Form, Body
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
+from fastapi.middleware.cors import CORSMiddleware
+
 
 # Make project root importable when run as `uvicorn api.main:app`.
 ROOT = Path(__file__).resolve().parent.parent
@@ -44,6 +51,9 @@ from dashboard import rbi_report              # noqa: E402
 from pipeline.orchestrator import (           # noqa: E402
     ingest_new_complaint, process_one_streaming, refresh_root_cause,
 )
+from agents.llm_client import get_client      # noqa: E402
+from agents.spam_filter import check_spam     # noqa: E402
+
 
 
 app = FastAPI(
@@ -51,6 +61,15 @@ app = FastAPI(
     version="1.0.0",
     description="Programmatic access to the 6-agent complaint intelligence pipeline.",
 )
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 
 # --- request / response models -----------------------------------------------
@@ -77,6 +96,8 @@ class ComplaintOut(BaseModel):
     draft_response: Optional[str]
     sla: dict[str, Any]
     risk: dict[str, int]
+    transcribed_text: Optional[str] = None
+
 
 
 # --- endpoints ---------------------------------------------------------------
@@ -98,6 +119,114 @@ def submit_complaint(payload: ComplaintIn) -> dict[str, Any]:
     if payload.refresh_root_cause:
         refresh_root_cause()
     return {"id": new_id, **result}
+
+
+@app.post("/verify-account")
+def verify_account(payload: dict = Body(...)) -> dict[str, Any]:
+    account_number = payload.get("account_number")
+    captcha_token = payload.get("captcha_token")
+
+    if not account_number:
+        raise HTTPException(status_code=400, detail="account_number is required")
+    
+    if not captcha_token:
+        raise HTTPException(status_code=400, detail="captcha_token is required. Please complete the bot verification.")
+        
+    # Verify Cloudflare Turnstile token
+    turnstile_secret = os.getenv("TURNSTILE_SECRET_KEY", "1x0000000000000000000000000000000AA")  # Dummy secret for testing
+    verify_url = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+    data = urllib.parse.urlencode({
+        "secret": turnstile_secret,
+        "response": captcha_token
+    }).encode("utf-8")
+    
+    req = urllib.request.Request(verify_url, data=data)
+    try:
+        with urllib.request.urlopen(req) as response:
+            result = json.loads(response.read().decode())
+            if not result.get("success"):
+                raise HTTPException(status_code=400, detail="Bot verification failed.")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Bot verification service unavailable: {e}")
+
+    customer = db.verify_customer(account_number)
+    if not customer:
+        raise HTTPException(status_code=401, detail="Invalid account number")
+        
+    if db.is_user_blocked(account_number):
+        raise HTTPException(status_code=403, detail="Account is blocked due to excessive invalid requests")
+        
+    return {"success": True, "customer_name": customer["customer_name"]}
+
+
+@app.post("/voice-complaint", response_model=ComplaintOut)
+async def submit_voice_complaint(
+    audio: UploadFile = File(...),
+    account_number: str = Form(...),
+    customer_name: str = Form(...),
+    location: Optional[str] = Form(None),
+    account_type: Optional[str] = Form(None),
+    amount_involved: Optional[float] = Form(None)
+) -> dict[str, Any]:
+    # Verify account
+    customer = db.verify_customer(account_number)
+    if not customer:
+        raise HTTPException(status_code=401, detail="Invalid account number")
+        
+    if db.is_user_blocked(account_number):
+        raise HTTPException(status_code=403, detail="Account is blocked")
+    
+    # Save audio temporarily
+    fd, path = tempfile.mkstemp(suffix=".webm")
+    try:
+        with open(path, "wb") as f:
+            content = await audio.read()
+            f.write(content)
+            
+        client = get_client()
+        with open(path, "rb") as f:
+            transcription = client.audio.transcriptions.create(
+                file=(audio.filename or "audio.webm", f.read()),
+                model="whisper-large-v3",
+                response_format="json",
+            )
+            
+        text = transcription.text
+    finally:
+        os.close(fd)
+        os.unlink(path)
+        
+    # Check spam
+    spam_result = check_spam(text)
+    if not spam_result.get("is_valid", True):
+        db.record_spam_strike(account_number)
+        raise HTTPException(
+            status_code=400, 
+            detail={
+                "message": f"Please input a valid banking complaint. Spam filter reason: {spam_result.get('reason')}",
+                "transcribed_text": text
+            }
+        )
+        
+    payload = {
+        "complaint_text": text,
+        "customer_name": customer_name,
+        "channel": "portal",
+        "language": "english", # Intake will fix if it's Hindi/Marathi natively spoken
+        "account_type": account_type or "savings",
+        "location": location,
+        "amount_involved": amount_involved,
+    }
+    
+    new_id = ingest_new_complaint(payload)
+    try:
+        result = process_one_streaming(new_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Pipeline error: {e}")
+        
+    return {"id": new_id, "transcribed_text": text, **result}
+
+
 
 
 @app.get("/complaints")

@@ -18,7 +18,11 @@ folium==0.18.0
 streamlit-folium==0.23.1
 joblib==1.4.2
 python-dotenv==1.0.1
+pytest==8.1.1
+pyotp==2.10.0
+qrcode[pil]==7.4.2
 supabase>=2.3.0
 psycopg2-binary==2.9.10
 streamlit-cookies-controller==0.0.4
 pgvector==0.3.2
+python-multipart==0.0.9
