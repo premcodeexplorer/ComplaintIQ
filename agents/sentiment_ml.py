@@ -17,6 +17,12 @@ import os as _os
 _os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 _os.environ.setdefault("USE_TF", "0")
 _os.environ.setdefault("USE_FLAX", "0")
+_os.environ.setdefault("TRANSFORMERS_NO_ADVISORY_WARNINGS", "1")
+# Memory limits for PyTorch to survive on Railway 500MB
+_os.environ.setdefault("OMP_NUM_THREADS", "1")
+_os.environ.setdefault("MKL_NUM_THREADS", "1")
+_os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+_os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
 from typing import Any
 
@@ -65,6 +71,7 @@ def predict(text: str) -> dict[str, Any] | None:
     Returns None if the model can't be loaded (no internet / no torch).
     On failure, the underlying exception text is stashed in `last_error()`."""
     global _last_error
+    
     try:
         pipe = _get_pipeline()
     except Exception as e:
