@@ -122,7 +122,11 @@ def risk_color(v: float | int) -> str:
 
 _GLOBAL_CSS = f"""
 <style>
-  /* page-level chrome */
+    /* hide streamlit deploy button */
+    .stAppDeployButton {{display:none;}}
+    [data-testid="stToolbar"] {{display:none;}}
+    
+    /* page-level chrome */
   .stApp {{ background: {PAL_BG}; color: {PAL_INK}; }}
   section[data-testid="stSidebar"] {{
       background: {PAL_SAND} !important;
@@ -1448,7 +1452,7 @@ def render_mfa_screen() -> None:
                         st.error("Invalid code. Try again.")
         
         if st.button("Logout", key="mfa_logout"):
-            st.session_state.clear()
+            st.session_state["logout_requested"] = True
             st.rerun()
         
         st.markdown("</div>", unsafe_allow_html=True)
@@ -1459,6 +1463,12 @@ def main() -> None:
     
     from streamlit_cookies_controller import CookieController
     controller = CookieController()
+
+    if st.session_state.get("logout_requested"):
+        controller.remove("complaintiq_admin_session")
+        st.session_state.clear()
+        render_login_screen()
+        return
     
     # 1. Fetch the cookie
     saved = controller.get("complaintiq_admin_session")
@@ -1539,6 +1549,10 @@ def main() -> None:
         drafted = df.dropna(subset=["draft_response"]).sort_values("date", ascending=False).head(20)
         if drafted.empty:
             st.info("No drafts yet -- pipeline still running, or all complaints were duplicates.")
+            
+        from api.email_service import send_reply_email
+        from database.db import get_user_by_account
+            
         for _, r in drafted.iterrows():
             with st.expander(f"{r['id']} -- {r['customer_name']} -- {r['category']} ({r['severity']})"):
                 st.caption(f"Channel: {r['channel']}  |  Language: {r['language']}  "
@@ -1546,7 +1560,33 @@ def main() -> None:
                 st.markdown("**Original complaint:**")
                 st.write(r["complaint_text"])
                 st.markdown("**Drafted reply:**")
-                st.write(r["draft_response"])
+                
+                email_target = None
+                
+                # First check if the email was provided directly on the complaint
+                if pd.notna(r.get("customer_email")):
+                    email_target = r["customer_email"]
+                # Fallback to looking up by account_no if it's a portal complaint
+                elif r.get("channel") == "portal" and pd.notna(r.get("account_no")):
+                    u = get_user_by_account(r["account_no"])
+                    if u and u.get("email"):
+                        email_target = u["email"]
+                
+                if email_target:
+                    draft_key = f"draft_{r['id']}"
+                    edited_draft = st.text_area("Review and edit before sending:", value=r["draft_response"], height=150, key=draft_key)
+                    if st.button(f"Send Reply to {email_target}", key=f"send_{r['id']}"):
+                        success = send_reply_email(
+                            to_email=email_target,
+                            subject=f"Update regarding your complaint {r['id']} - Union Bank of India",
+                            body=edited_draft
+                        )
+                        if success:
+                            st.success("Reply sent successfully!")
+                        else:
+                            st.error("Failed to send email.")
+                else:
+                    st.write(r["draft_response"])
 
 
 if __name__ == "__main__":

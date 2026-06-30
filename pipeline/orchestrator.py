@@ -44,6 +44,7 @@ from agents import classifier, duplicate_detector as dd, intake, response_drafte
 from agents import root_cause, risk_score as risk_module
 from agents import ml_category, sentiment_ml, priority as priority_module
 from database import db
+from api.email_service import send_reply_email
 
 
 def process_one_streaming(complaint_id: str, *, draft_response: bool = True,
@@ -83,6 +84,22 @@ def process_one_streaming(complaint_id: str, *, draft_response: bool = True,
         emit("Agent 4 (Response Drafter)", "started")
         draft = response_drafter.draft(row, sla_days=_lookup_sla_days(row))
         emit("Agent 4 (Response Drafter)", "done", {"draft": draft})
+
+        # --- Auto-send email ---
+        email_target = None
+        if row.get("customer_email"):
+            email_target = row["customer_email"]
+        elif row.get("channel") == "portal" and row.get("account_no"):
+            u = db.get_user_by_account(row["account_no"])
+            if u and u.get("email"):
+                email_target = u["email"]
+        
+        if email_target and draft:
+            send_reply_email(
+                to_email=email_target,
+                subject=f"Update regarding your complaint {row['id']} - Union Bank of India",
+                body=draft
+            )
 
     emit("Agent 5 (SLA Monitor)", "started")
     sla = sla_monitor.predict_breach(row)

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import WebSocket from 'ws';
 
 // Simple in-memory rate limiter (Note: resets on serverless cold starts)
 // For enterprise rate-limiting, use Upstash Redis or a Supabase rate_limits table.
@@ -42,10 +43,10 @@ export const handler = async (event, context) => {
     const body = JSON.parse(event.body);
     
     // Validate required fields
-    if (!body.customer_name || !body.complaint_text) {
+    if (!body.email || !body.customer_name || !body.complaint_text) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Name and complaint details are required.' })
+        body: JSON.stringify({ error: 'Email, name, and complaint details are required.' })
       };
     }
 
@@ -59,7 +60,17 @@ export const handler = async (event, context) => {
       return { statusCode: 500, body: JSON.stringify({ error: 'Internal server configuration error.' }) };
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: false
+      },
+      global: {
+        fetch: fetch
+      },
+      realtime: {
+        transport: WebSocket
+      }
+    });
 
     // Prepare payload using native Node crypto (no dependency required)
     const complaintId = `PORTAL-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
@@ -71,6 +82,8 @@ export const handler = async (event, context) => {
       .insert([
         {
           id: complaintId,
+          account_no: body.account_no || null,
+          customer_email: body.email || null,
           customer_name: body.customer_name,
           channel: 'portal',
           complaint_text: body.complaint_text,

@@ -27,8 +27,16 @@ else:
 DB_PATH = Path(__file__).resolve().parent.parent / "data" / "complaintiq.sqlite"
 
 SCHEMA_COMMON = """
+CREATE TABLE IF NOT EXISTS users (
+    account_no      TEXT PRIMARY KEY,
+    name            TEXT,
+    email           TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS complaints (
     id              TEXT PRIMARY KEY,
+    account_no      TEXT,
+    customer_email  TEXT,
     customer_name   TEXT NOT NULL,
     channel         TEXT NOT NULL,
     complaint_text  TEXT NOT NULL,
@@ -189,7 +197,7 @@ def init_db() -> None:
 # --- ingestion ----------------------------------------------------------------
 
 INSERT_COLS = (
-    "id", "customer_name", "channel", "complaint_text", "language",
+    "id", "account_no", "customer_email", "customer_name", "channel", "complaint_text", "language",
     "date", "location", "account_type", "amount_involved",
 )
 
@@ -228,7 +236,7 @@ UPDATABLE_FIELDS = {
     "date",                            # writable so the data-remix script can rebalance
     "channel", "complaint_text",       # writable so we can flip 50 rows to mobile_app
     "category", "severity", "sentiment", "intake_json",
-    "duplicate_of", "similarity", "draft_response",
+    "account_no", "customer_email", "duplicate_of", "similarity", "draft_response",
     "sla_due_date", "sla_breach_prob", "risk_score",
     "risk_ombudsman", "risk_churn", "risk_social",
     "cluster_id", "status", "resolved_at", "processed_at",
@@ -256,6 +264,12 @@ def update_complaint(complaint_id: str, **fields: Any) -> None:
 def get_complaint(complaint_id: str) -> dict[str, Any] | None:
     with connect() as c:
         row = _exec(c, "SELECT * FROM complaints WHERE id = ?", (complaint_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def get_user_by_account(account_no: str) -> dict[str, Any] | None:
+    with connect() as c:
+        row = _exec(c, "SELECT * FROM users WHERE account_no = ?", (account_no,)).fetchone()
     return dict(row) if row else None
 
 
@@ -422,6 +436,8 @@ def ensure_schema() -> None:
             existing = {r[1] for r in c.execute("PRAGMA table_info(complaints)").fetchall()}
             
         for col, ddl in (
+            ("account_no",     "TEXT"),
+            ("customer_email", "TEXT"),
             ("risk_ombudsman", "INTEGER"),
             ("risk_churn",     "INTEGER"),
             ("risk_social",    "INTEGER"),
@@ -440,6 +456,12 @@ def ensure_schema() -> None:
                     c.cursor().execute(f"ALTER TABLE complaints ADD COLUMN {col} {ddl}")
                 else:
                     c.execute(f"ALTER TABLE complaints ADD COLUMN {col} {ddl}")
+                    
+        # Also ensure users table exists if we are just calling ensure_schema
+        if IS_POSTGRES:
+            c.cursor().execute("CREATE TABLE IF NOT EXISTS users (account_no TEXT PRIMARY KEY, name TEXT, email TEXT NOT NULL)")
+        else:
+            c.execute("CREATE TABLE IF NOT EXISTS users (account_no TEXT PRIMARY KEY, name TEXT, email TEXT NOT NULL)")
 
 
 if __name__ == "__main__":

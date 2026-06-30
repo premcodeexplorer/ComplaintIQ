@@ -5,7 +5,9 @@ import toast from 'react-hot-toast';
 
 export default function ComplaintForm({ user }) {
   const [formData, setFormData] = useState({
-
+    account_no: user?.accountNumber || '',
+    email: '',
+    customer_name: user?.customerName || '',
     complaint_text: '',
     language: 'English',
     location: '',
@@ -151,6 +153,9 @@ export default function ComplaintForm({ user }) {
       toast.success(data.message || 'Your complaint has been successfully registered.', { duration: 5000 });
       
       setFormData({
+        account_no: user?.accountNumber || '',
+        email: '',
+        customer_name: user?.customerName || '',
         complaint_text: '',
         language: 'English',
         location: '',
@@ -175,6 +180,23 @@ export default function ComplaintForm({ user }) {
       </p>
 
       <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <div className="form-group">
+            <label className="form-label" htmlFor="email">Email Address *</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              className="form-input"
+              placeholder="john@example.com"
+              value={formData.email}
+              onChange={handleChange}
+              required
+              disabled={isSubmitting}
+            />
+          </div>
+        </div>
+
         <div className="form-group">
           <label className="form-label" htmlFor="complaint_text">Complaint Details *</label>
           
