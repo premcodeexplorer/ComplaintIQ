@@ -1429,7 +1429,7 @@ def render_mfa_screen() -> None:
                 code = st.text_input("Enter 6-digit code", max_chars=6)
                 submit = st.form_submit_button("Verify & Save", use_container_width=True)
                 if submit:
-                    if totp.verify(code):
+                    if totp.verify(code, valid_window=1):
                         from auth.supabase_auth import update_totp_secret
                         update_totp_secret(user_id, secret)
                         st.session_state["admin_session"]["profile"]["totp_secret"] = secret
@@ -1445,7 +1445,7 @@ def render_mfa_screen() -> None:
                 if submit:
                     import pyotp
                     totp = pyotp.TOTP(totp_secret)
-                    if totp.verify(code):
+                    if totp.verify(code, valid_window=1):
                         st.session_state["mfa_verified"] = True
                         st.rerun()
                     else:
