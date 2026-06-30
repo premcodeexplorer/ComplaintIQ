@@ -60,6 +60,11 @@ CREATE INDEX IF NOT EXISTS idx_complaints_customer ON complaints(customer_name);
 CREATE INDEX IF NOT EXISTS idx_complaints_date     ON complaints(date);
 CREATE INDEX IF NOT EXISTS idx_complaints_category ON complaints(category);
 CREATE INDEX IF NOT EXISTS idx_complaints_location ON complaints(location);
+
+CREATE TABLE IF NOT EXISTS bank_customers (
+    account_number TEXT PRIMARY KEY,
+    customer_name  TEXT NOT NULL
+);
 """
 
 if IS_POSTGRES:
@@ -87,7 +92,15 @@ if IS_POSTGRES:
         FOREIGN KEY(complaint_id) REFERENCES complaints(id)
     );
     CREATE INDEX IF NOT EXISTS idx_feedback_complaint ON feedback(complaint_id);
+
+    CREATE TABLE IF NOT EXISTS spam_penalties (
+        id             SERIAL PRIMARY KEY,
+        account_number TEXT NOT NULL,
+        created_at     TEXT NOT NULL,
+        FOREIGN KEY(account_number) REFERENCES bank_customers(account_number)
+    );
     """
+
 else:
     SCHEMA_SPECIFIC = """
     CREATE TABLE IF NOT EXISTS root_cause_alerts (
@@ -111,7 +124,15 @@ else:
         FOREIGN KEY(complaint_id) REFERENCES complaints(id)
     );
     CREATE INDEX IF NOT EXISTS idx_feedback_complaint ON feedback(complaint_id);
+
+    CREATE TABLE IF NOT EXISTS spam_penalties (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_number TEXT NOT NULL,
+        created_at     TEXT NOT NULL,
+        FOREIGN KEY(account_number) REFERENCES bank_customers(account_number)
+    );
     """
+
 
 SCHEMA = SCHEMA_COMMON + SCHEMA_SPECIFIC
 
@@ -159,7 +180,10 @@ def init_db() -> None:
             cur.execute(SCHEMA)
         else:
             c.executescript(SCHEMA)
+            # Insert dummy bank customer for local SQLite tests
+            c.execute("INSERT OR IGNORE INTO bank_customers (account_number, customer_name) VALUES (?, ?)", ("1234567890", "John Doe"))
     ensure_schema()
+
 
 
 # --- ingestion ----------------------------------------------------------------
@@ -254,6 +278,56 @@ def list_unprocessed(limit: int | None = None) -> list[dict[str, Any]]:
 
 def customer_history(customer_name: str) -> list[dict[str, Any]]:
     return list_complaints(where="customer_name = ?", params=(customer_name,))
+
+
+# --- auth & spam --------------------------------------------------------------
+
+def verify_customer(account_number: str) -> dict[str, Any] | None:
+    with connect() as c:
+        row = _exec(c, "SELECT * FROM bank_customers WHERE account_number = ?", (account_number,)).fetchone()
+    return dict(row) if row else None
+
+
+def record_spam_strike(account_number: str) -> None:
+    with connect() as c:
+        _exec(c, 
+              "INSERT INTO spam_penalties (account_number, created_at) VALUES (?, ?)", 
+              (account_number, datetime.utcnow().isoformat(timespec="seconds") + "Z")
+        )
+
+
+def is_user_blocked(account_number: str) -> bool:
+    """If user is flagged 2 times in a single day, block them for 2 days."""
+    with connect() as c:
+        rows = _exec(c, 
+            "SELECT created_at FROM spam_penalties WHERE account_number = ? ORDER BY created_at DESC LIMIT 10", 
+            (account_number,)
+        ).fetchall()
+        
+    if len(rows) < 2:
+        return False
+        
+    now = datetime.utcnow()
+    strikes_by_day = {}
+    for r in rows:
+        dt_str = r['created_at'] if IS_POSTGRES else r[0]
+        try:
+            # handle Python 3.10 lack of trailing Z parsing easily
+            dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00")).replace(tzinfo=None)
+        except ValueError:
+            dt = datetime.utcnow()
+            
+        if (now - dt).days <= 2:
+            day_str = dt_str[:10]
+            strikes_by_day[day_str] = strikes_by_day.get(day_str, 0) + 1
+            
+    for count in strikes_by_day.values():
+        if count >= 2:
+            return True
+            
+    return False
+
+
 
 
 # --- alerts -------------------------------------------------------------------

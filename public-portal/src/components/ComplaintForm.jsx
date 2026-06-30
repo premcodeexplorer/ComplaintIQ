@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { checkRateLimit, recordSubmission } from '../utils/rateLimit';
-import { Send, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Send, AlertCircle, CheckCircle2, Loader2, Mic, Square } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export default function ComplaintForm() {
+export default function ComplaintForm({ user }) {
   const [formData, setFormData] = useState({
-    customer_name: '',
+
     complaint_text: '',
     language: 'English',
     location: '',
@@ -14,6 +14,11 @@ export default function ComplaintForm() {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState(null);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef(null);
+  const timerRef = useRef(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -23,15 +28,65 @@ export default function ComplaintForm() {
     }));
   };
 
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      const chunks = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        setAudioBlob(blob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      setAudioBlob(null);
+      setFormData(prev => ({ ...prev, complaint_text: '' })); // clear text if recording
+
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+
+    } catch (err) {
+      toast.error('Microphone access denied or not available.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      clearInterval(timerRef.current);
+    }
+  };
+
+  const removeAudio = () => {
+    setAudioBlob(null);
+    setRecordingTime(0);
+  };
+
+  const formatTime = (seconds) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.customer_name.trim() || !formData.complaint_text.trim()) {
-      toast.error('Please fill in your name and the complaint details.');
+    if (!audioBlob && !formData.complaint_text.trim()) {
+      toast.error('Please either record an audio or type your complaint details.');
       return;
     }
 
-    // Client-side rate limiting (optional fallback layer)
     const rateLimit = checkRateLimit();
     if (!rateLimit.allowed) {
       toast.error(rateLimit.message, { duration: 5000 });
@@ -41,34 +96,57 @@ export default function ComplaintForm() {
     setIsSubmitting(true);
     
     try {
-      // Send the data to our secure Netlify Serverless Function
-      const response = await fetch('/api/submit-complaint', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      let endpoint = '';
+      let fetchOptions = {};
 
+      if (audioBlob) {
+        // Submit via Voice
+        endpoint = `${apiUrl}/voice-complaint`;
+        const payload = new FormData();
+        payload.append('audio', audioBlob, 'voice_complaint.webm');
+        payload.append('account_number', user.accountNumber);
+        payload.append('customer_name', user.customerName);
+        if (formData.location) payload.append('location', formData.location);
+        if (formData.account_type) payload.append('account_type', formData.account_type);
+        if (formData.amount_involved) payload.append('amount_involved', formData.amount_involved);
+
+        fetchOptions = {
+          method: 'POST',
+          body: payload, // no content-type header for FormData
+        };
+      } else {
+        // Submit via Text to Netlify/FastAPI
+        endpoint = `${apiUrl}/complaint`;
+        fetchOptions = {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...formData,
+            customer_name: user.customerName,
+            account_number: user.accountNumber, // Passed to text endpoint too
+          })
+        };
+      }
+
+      const response = await fetch(endpoint, fetchOptions);
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to submit complaint.');
+        throw new Error(data.detail || data.error || 'Failed to submit complaint.');
       }
 
-      // Record successful submission in local storage as a fallback tracker
       recordSubmission();
       toast.success(data.message || 'Your complaint has been successfully registered.', { duration: 5000 });
       
-      // Reset form
       setFormData({
-        customer_name: '',
         complaint_text: '',
         language: 'English',
         location: '',
         account_type: '',
         amount_involved: '',
       });
+      removeAudio();
       
     } catch (err) {
       toast.error(err.message || 'Failed to submit complaint. Please try again later.');
@@ -78,6 +156,7 @@ export default function ComplaintForm() {
   };
 
   return (
+
     <div className="glass-card">
       <h2 className="title" style={{ fontSize: '1.8rem' }}>Register a Complaint</h2>
       <p className="subtitle" style={{ marginBottom: '1.5rem', fontSize: '0.95rem' }}>
@@ -86,33 +165,44 @@ export default function ComplaintForm() {
 
       <form onSubmit={handleSubmit}>
         <div className="form-group">
-          <label className="form-label" htmlFor="customer_name">Full Name *</label>
-          <input
-            type="text"
-            id="customer_name"
-            name="customer_name"
-            className="form-input"
-            placeholder="John Doe"
-            value={formData.customer_name}
-            onChange={handleChange}
-            required
-            disabled={isSubmitting}
-          />
-        </div>
-
-        <div className="form-group">
           <label className="form-label" htmlFor="complaint_text">Complaint Details *</label>
+          
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+            {!isRecording && !audioBlob && (
+              <button type="button" onClick={startRecording} className="btn-primary" style={{ backgroundColor: '#ef4444', flex: 1 }}>
+                <Mic size={18} /> Record Voice Complaint
+              </button>
+            )}
+            
+            {isRecording && (
+              <button type="button" onClick={stopRecording} className="btn-primary" style={{ backgroundColor: '#10b981', flex: 1, animation: 'pulse 2s infinite' }}>
+                <Square size={18} /> Stop Recording ({formatTime(recordingTime)})
+              </button>
+            )}
+
+            {audioBlob && (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.05)', padding: '0.5rem 1rem', borderRadius: '8px' }}>
+                <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <CheckCircle2 size={18} /> Voice Recorded ({formatTime(recordingTime)})
+                </span>
+                <button type="button" onClick={removeAudio} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', textDecoration: 'underline' }}>
+                  Remove
+                </button>
+              </div>
+            )}
+          </div>
+
           <textarea
             id="complaint_text"
             name="complaint_text"
             className="form-textarea"
-            placeholder="Please describe your issue in detail..."
+            placeholder="Or describe your issue in detail by typing here..."
             value={formData.complaint_text}
             onChange={handleChange}
-            required
-            disabled={isSubmitting}
+            disabled={isSubmitting || audioBlob || isRecording}
           ></textarea>
         </div>
+
 
         <div className="form-row">
           <div className="form-group">
