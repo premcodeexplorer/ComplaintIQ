@@ -122,7 +122,11 @@ def risk_color(v: float | int) -> str:
 
 _GLOBAL_CSS = f"""
 <style>
-  /* page-level chrome */
+    /* hide streamlit deploy button */
+    .stAppDeployButton {{display:none;}}
+    [data-testid="stToolbar"] {{display:none;}}
+    
+    /* page-level chrome */
   .stApp {{ background: {PAL_BG}; color: {PAL_INK}; }}
   section[data-testid="stSidebar"] {{
       background: {PAL_SAND} !important;
@@ -1448,7 +1452,7 @@ def render_mfa_screen() -> None:
                         st.error("Invalid code. Try again.")
         
         if st.button("Logout", key="mfa_logout"):
-            st.session_state.clear()
+            st.session_state["logout_requested"] = True
             st.rerun()
         
         st.markdown("</div>", unsafe_allow_html=True)
@@ -1459,6 +1463,12 @@ def main() -> None:
     
     from streamlit_cookies_controller import CookieController
     controller = CookieController()
+
+    if st.session_state.get("logout_requested"):
+        controller.remove("complaintiq_admin_session")
+        st.session_state.clear()
+        render_login_screen()
+        return
     
     # 1. Fetch the cookie
     saved = controller.get("complaintiq_admin_session")
