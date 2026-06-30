@@ -22,6 +22,15 @@ _os.environ.setdefault("USE_TF", "0")
 _os.environ.setdefault("USE_FLAX", "0")
 _os.environ.setdefault("TRANSFORMERS_NO_ADVISORY_WARNINGS", "1")
 
+# Preload torch FIRST -- before pandas / numpy / chromadb load their own
+# MKL/OpenMP runtimes -- so torch's c10.dll wins the Windows DLL init race.
+# Without this, Agent 3 (sentence-transformers) triggers a late torch import
+# that fails with "WinError 1114 ... c10.dll". See orchestrator.py / api/main.py.
+try:
+    import torch  # noqa: F401
+except Exception:
+    pass
+
 import sys
 from datetime import datetime, date
 from pathlib import Path
@@ -37,6 +46,7 @@ if str(ROOT) not in sys.path:
 
 from database import db  # noqa: E402
 from dashboard import rbi_report  # noqa: E402
+from auth.supabase_auth import sign_in, sign_out, update_last_login  # noqa: E402
 
 st.set_page_config(
     page_title="ComplaintIQ -- Union Bank of India",
@@ -841,12 +851,54 @@ def _run_live_pipeline(raw: dict[str, Any]) -> None:
         st.caption("No draft generated -- complaint was flagged as a duplicate of "
                    f"{dup['duplicate_of']} (similarity {dup['similarity']}).")
 
+    _render_pii_panel(raw)
+
     if st.button("Re-run Root-Cause clustering (Agent 6)"):
         n = refresh_root_cause()
         st.success(f"Refreshed -- {n} alerts now in the database.")
         load_alerts.clear()
 
     load_complaints.clear()
+
+
+def _render_pii_panel(raw: dict[str, Any]) -> None:
+    """Show raw-vs-masked text so reviewers can see that customer identifiers
+    are stripped before anything is sent to the external LLM."""
+    import os
+    from agents import pii as _pii
+
+    masking_on = os.getenv("PII_MASKING", "1").strip().lower() not in (
+        "0", "false", "no", "off", "",
+    )
+    text = raw.get("complaint_text") or ""
+    masker = _pii.PIIMasker()
+    masked = masker.mask(text, known_values=[raw.get("customer_name")])
+    mapping = masker.mapping
+
+    st.markdown("#### 🔒 Data privacy — what actually leaves for the LLM")
+    if not masking_on:
+        st.warning("PII masking is currently **OFF** (`PII_MASKING=0`) — raw text "
+                   "is being sent. Enable it for production.")
+    elif mapping:
+        st.caption(f"{len(mapping)} identifier(s) masked before the text was sent "
+                   "to Groq. The real values stay in the bank's database.")
+    else:
+        st.caption("No PII identifiers detected in this complaint — nothing to mask.")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**Raw complaint** _(kept in bank DB)_")
+        st.code(text or "(empty)", language=None)
+    with col2:
+        st.markdown("**Sent to LLM** _(PII-masked)_")
+        st.code(masked or "(empty)", language=None)
+
+    if mapping:
+        with st.expander(f"Masking detail ({len(mapping)} item(s))"):
+            for token, original in mapping.items():
+                st.markdown(f"- `{token}`  ⟵  `{original}`")
+        st.caption("The same masking is applied to every field sent to the LLM "
+                   "(name, account type, etc.), not just the complaint text.")
 
 
 def render_alert_banners(df: pd.DataFrame, alerts: pd.DataFrame) -> None:
@@ -906,7 +958,19 @@ def render_alert_banners(df: pd.DataFrame, alerts: pd.DataFrame) -> None:
         )
 
 
-def render_sidebar(df: pd.DataFrame) -> None:
+def render_sidebar(df: pd.DataFrame, controller) -> None:
+    session = st.session_state.get("admin_session")
+    if session:
+        profile = session.get("profile", {})
+        st.sidebar.markdown(f"👤 **{profile.get('full_name', 'Admin')}**")
+        st.sidebar.caption(f"{profile.get('email', '')}")
+        if st.sidebar.button("Sign Out", use_container_width=True):
+            sign_out(session)
+            st.session_state.pop("admin_session", None)
+            controller.remove("complaintiq_admin_session")
+            st.rerun()
+        st.sidebar.divider()
+
     st.sidebar.header("RBI Compliance Report")
     stats = rbi_report.summary_stats(df)
     st.sidebar.metric("Total complaints", stats["total"])
@@ -1281,8 +1345,63 @@ def _feedback_widget(col, row, field: str, current: str | None, choices: list[st
             st.rerun()
 
 
+def render_login_screen() -> None:
+    st.markdown(
+        f"<h1 style='text-align: center; color:{PAL_INK}; margin-top: 10vh;'>"
+        f"<span style='color:{PAL_BLUE}'>Complaint</span>"
+        f"<span style='color:{PAL_RED}'>IQ</span></h1>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(f"<p style='text-align: center; color:{PAL_INK};'>Bank Admin Portal</p>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown(f"""
+        <div style="background-color:{PAL_SAND}55; padding: 20px; border-radius: 10px; border: 1px solid {PAL_BLUE}33; margin-top: 20px;">
+        """, unsafe_allow_html=True)
+        
+        with st.form("login_form"):
+            email = st.text_input("Email", placeholder="admin@bank.com")
+            password = st.text_input("Password", type="password")
+            submit = st.form_submit_button("Sign In", use_container_width=True)
+            
+            if submit:
+                if not email or not password:
+                    st.error("Please enter both email and password.")
+                else:
+                    try:
+                        session = sign_in(email, password)
+                        update_last_login(session["user"]["id"])
+                        st.session_state["admin_session"] = session
+                        st.rerun()
+                    except RuntimeError as e:
+                        st.error(str(e))
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
 def main() -> None:
     st.markdown(_GLOBAL_CSS, unsafe_allow_html=True)
+    
+    from streamlit_cookies_controller import CookieController
+    controller = CookieController()
+    
+    # 1. Fetch the cookie
+    saved = controller.get("complaintiq_admin_session")
+    
+    # 2. Sync cookie to session_state if we just loaded the page
+    if "admin_session" not in st.session_state:
+        if saved:
+            st.session_state["admin_session"] = saved
+
+    # 3. Sync session_state to cookie if we just logged in (saved is None)
+    if st.session_state.get("admin_session") and not saved:
+        controller.set("complaintiq_admin_session", st.session_state["admin_session"], max_age=604800)
+
+    # 4. If still not logged in, show login screen
+    if not st.session_state.get("admin_session"):
+        render_login_screen()
+        return
     st.markdown(
         f"<h1 style='color:{PAL_INK};margin-bottom:0'>"
         f"<span style='color:{PAL_BLUE}'>Complaint</span>"
@@ -1299,10 +1418,19 @@ def main() -> None:
                    "`python -m pipeline.orchestrator` to process.")
         return
 
-    render_sidebar(df)
+    render_sidebar(df, controller)
     render_kpis(df)
     render_alert_banners(df, alerts)
     render_live_submit()
+    
+    unprocessed_count = len(db.list_unprocessed())
+    if unprocessed_count > 0:
+        if st.button(f"Process {unprocessed_count} Pending Complaints", type="primary"):
+            from pipeline.orchestrator import process_all
+            with st.spinner("Processing pending complaints... This might take a minute."):
+                process_all()
+            st.success(f"Successfully processed {unprocessed_count} complaints!")
+            st.rerun()
     st.divider()
 
     (tab_feed, tab_customer, tab_map, tab_sla, tab_alerts,

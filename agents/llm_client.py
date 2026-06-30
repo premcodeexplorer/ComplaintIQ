@@ -15,9 +15,17 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+from . import pii
+
 load_dotenv()
 
 DEFAULT_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+
+# PII masking is ON by default. Set PII_MASKING=0 to disable (e.g. to show
+# judges the raw-vs-masked difference live).
+_PII_MASKING = os.getenv("PII_MASKING", "1").strip().lower() not in (
+    "0", "false", "no", "off", "",
+)
 
 
 def _get_api_key() -> str | None:
@@ -53,8 +61,20 @@ def get_client():
 
 
 def chat(prompt: str, *, system: str | None = None, temperature: float = 0.2,
-         max_tokens: int = 800, model: str | None = None, retries: int = 2) -> str:
-    """Single-shot chat call. Returns the assistant message string."""
+         max_tokens: int = 800, model: str | None = None, retries: int = 2,
+         pii_values: list[str | None] | None = None) -> str:
+    """Single-shot chat call. Returns the assistant message string.
+
+    PII is masked before the text leaves for Groq and the reply is un-masked
+    locally, so customer identifiers never reach the external API. `pii_values`
+    lets the caller pass known literals to mask (e.g. the customer name).
+    """
+    masker = None
+    if _PII_MASKING:
+        masker = pii.PIIMasker()
+        system = masker.mask(system, pii_values) if system else system
+        prompt = masker.mask(prompt, pii_values)
+
     messages: list[dict[str, str]] = []
     if system:
         messages.append({"role": "system", "content": system})
@@ -70,7 +90,8 @@ def chat(prompt: str, *, system: str | None = None, temperature: float = 0.2,
                 temperature=temperature,
                 max_tokens=max_tokens,
             )
-            return resp.choices[0].message.content or ""
+            content = resp.choices[0].message.content or ""
+            return masker.unmask(content) if masker else content
         except Exception as e:  # network blip, rate limit, etc.
             last_err = e
             if attempt < retries:
@@ -82,10 +103,11 @@ _JSON_BLOCK = re.compile(r"\{.*\}", re.DOTALL)
 
 
 def chat_json(prompt: str, *, system: str | None = None, temperature: float = 0.1,
-              max_tokens: int = 800, model: str | None = None) -> dict[str, Any]:
+              max_tokens: int = 800, model: str | None = None,
+              pii_values: list[str | None] | None = None) -> dict[str, Any]:
     """Chat call that expects a JSON object back. Strips ```json fences and grabs first {...} block."""
     raw = chat(prompt, system=system, temperature=temperature,
-               max_tokens=max_tokens, model=model)
+               max_tokens=max_tokens, model=model, pii_values=pii_values)
     raw = raw.strip()
     if raw.startswith("```"):
         raw = raw.strip("`")

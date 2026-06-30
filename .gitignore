@@ -10,6 +10,7 @@ __pycache__/
 *.pyo
 *.egg-info/
 .pytest_cache/
+*.png
 
 # Virtual envs
 .venv/
@@ -36,3 +37,6 @@ _pipeline_run.log
 _pipeline_1000.log
 _new15_run.log
 data/_complaints_217_backup.json
+
+# Local Netlify folder
+.netlify

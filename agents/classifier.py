@@ -59,7 +59,8 @@ def classify(complaint: dict[str, Any]) -> dict[str, Any]:
         account_type=complaint.get("account_type"),
     )
     try:
-        data = chat_json(prompt, system=SYSTEM, temperature=0.0, max_tokens=200)
+        data = chat_json(prompt, system=SYSTEM, temperature=0.0, max_tokens=200,
+                         pii_values=[complaint.get("customer_name")])
     except Exception:
         return _fallback(complaint)
 

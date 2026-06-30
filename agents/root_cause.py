@@ -21,7 +21,7 @@ from typing import Any
 import numpy as np
 from sklearn.cluster import KMeans
 
-from . import duplicate_detector as dd
+from agents import duplicate_detector as dd
 
 MIN_CLUSTER_SIZE = 5
 DOMINANCE_THRESHOLD = 0.60   # 60% of cluster must share one (category, location)
@@ -29,12 +29,7 @@ DEFAULT_K = 12
 
 
 def _collect_vectors() -> tuple[list[str], np.ndarray, list[dict[str, Any]]]:
-    coll = dd._get_collection()
-    # Chroma `get` returns everything when no filter / no limit specified.
-    res = coll.get(include=["embeddings", "metadatas"])
-    ids = list(res.get("ids") or [])
-    embs = res.get("embeddings")
-    metas = list(res.get("metadatas") or [])
+    ids, embs, metas = dd.get_all_embeddings()
     if embs is None or len(embs) == 0:
         arr = np.zeros((0, 384), dtype=np.float32)
     else:

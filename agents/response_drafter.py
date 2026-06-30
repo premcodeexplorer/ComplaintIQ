@@ -53,7 +53,8 @@ def draft(complaint: dict[str, Any], *, sla_days: int = 5) -> str:
         text=complaint.get("complaint_text", ""),
     )
     try:
-        return chat(prompt, system=SYSTEM, temperature=0.4, max_tokens=400).strip()
+        return chat(prompt, system=SYSTEM, temperature=0.4, max_tokens=400,
+                    pii_values=[complaint.get("customer_name")]).strip()
     except Exception as e:
         return _fallback(complaint, sla_days=sla_days, error=str(e))
 
