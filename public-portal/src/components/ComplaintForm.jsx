@@ -5,6 +5,8 @@ import toast from 'react-hot-toast';
 
 export default function ComplaintForm() {
   const [formData, setFormData] = useState({
+    account_no: '',
+    email: '',
     customer_name: '',
     complaint_text: '',
     language: 'English',
@@ -62,6 +64,8 @@ export default function ComplaintForm() {
       
       // Reset form
       setFormData({
+        account_no: '',
+        email: '',
         customer_name: '',
         complaint_text: '',
         language: 'English',
@@ -86,18 +90,49 @@ export default function ComplaintForm() {
 
       <form onSubmit={handleSubmit}>
         <div className="form-group">
-          <label className="form-label" htmlFor="customer_name">Full Name *</label>
+          <label className="form-label" htmlFor="account_no">Account Number (Optional)</label>
           <input
             type="text"
-            id="customer_name"
-            name="customer_name"
+            id="account_no"
+            name="account_no"
             className="form-input"
-            placeholder="John Doe"
-            value={formData.customer_name}
+            placeholder="e.g. ACC-1001"
+            value={formData.account_no}
             onChange={handleChange}
-            required
             disabled={isSubmitting}
           />
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label" htmlFor="customer_name">Full Name *</label>
+            <input
+              type="text"
+              id="customer_name"
+              name="customer_name"
+              className="form-input"
+              placeholder="John Doe"
+              value={formData.customer_name}
+              onChange={handleChange}
+              required
+              disabled={isSubmitting}
+            />
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label" htmlFor="email">Email Address *</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              className="form-input"
+              placeholder="john@example.com"
+              value={formData.email}
+              onChange={handleChange}
+              required
+              disabled={isSubmitting}
+            />
+          </div>
         </div>
 
         <div className="form-group">

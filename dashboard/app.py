@@ -1460,6 +1460,10 @@ def main() -> None:
         drafted = df.dropna(subset=["draft_response"]).sort_values("date", ascending=False).head(20)
         if drafted.empty:
             st.info("No drafts yet -- pipeline still running, or all complaints were duplicates.")
+            
+        from api.email_service import send_reply_email
+        from database.db import get_user_by_account
+            
         for _, r in drafted.iterrows():
             with st.expander(f"{r['id']} -- {r['customer_name']} -- {r['category']} ({r['severity']})"):
                 st.caption(f"Channel: {r['channel']}  |  Language: {r['language']}  "
@@ -1467,7 +1471,33 @@ def main() -> None:
                 st.markdown("**Original complaint:**")
                 st.write(r["complaint_text"])
                 st.markdown("**Drafted reply:**")
-                st.write(r["draft_response"])
+                
+                email_target = None
+                
+                # First check if the email was provided directly on the complaint
+                if pd.notna(r.get("customer_email")):
+                    email_target = r["customer_email"]
+                # Fallback to looking up by account_no if it's a portal complaint
+                elif r.get("channel") == "portal" and pd.notna(r.get("account_no")):
+                    u = get_user_by_account(r["account_no"])
+                    if u and u.get("email"):
+                        email_target = u["email"]
+                
+                if email_target:
+                    draft_key = f"draft_{r['id']}"
+                    edited_draft = st.text_area("Review and edit before sending:", value=r["draft_response"], height=150, key=draft_key)
+                    if st.button(f"Send Reply to {email_target}", key=f"send_{r['id']}"):
+                        success = send_reply_email(
+                            to_email=email_target,
+                            subject=f"Update regarding your complaint {r['id']} - Union Bank of India",
+                            body=edited_draft
+                        )
+                        if success:
+                            st.success("Reply sent successfully!")
+                        else:
+                            st.error("Failed to send email.")
+                else:
+                    st.write(r["draft_response"])
 
 
 if __name__ == "__main__":
