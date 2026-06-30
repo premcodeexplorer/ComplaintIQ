@@ -145,7 +145,8 @@ def verify_account(payload: dict = Body(...)) -> dict[str, Any]:
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode())
             if not result.get("success"):
-                raise HTTPException(status_code=400, detail="Bot verification failed.")
+                error_codes = result.get("error-codes", [])
+                raise HTTPException(status_code=400, detail=f"Bot verification failed. Cloudflare says: {error_codes}")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Bot verification service unavailable: {e}")
 
