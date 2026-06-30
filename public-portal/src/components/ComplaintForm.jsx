@@ -17,7 +17,9 @@ export default function ComplaintForm({ user }) {
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState(null);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [transcription, setTranscription] = useState('');
   const mediaRecorderRef = useRef(null);
+
   const timerRef = useRef(null);
 
   const handleChange = (e) => {
@@ -133,10 +135,19 @@ export default function ComplaintForm({ user }) {
       const data = await response.json();
 
       if (!response.ok) {
+        if (data.detail && typeof data.detail === 'object') {
+          if (data.detail.transcribed_text) setTranscription(data.detail.transcribed_text);
+          throw new Error(data.detail.message || 'Failed to submit complaint.');
+        }
         throw new Error(data.detail || data.error || 'Failed to submit complaint.');
       }
 
+      if (data.transcribed_text) {
+        setTranscription(data.transcribed_text);
+      }
+
       recordSubmission();
+
       toast.success(data.message || 'Your complaint has been successfully registered.', { duration: 5000 });
       
       setFormData({
@@ -202,9 +213,16 @@ export default function ComplaintForm({ user }) {
             disabled={isSubmitting || audioBlob || isRecording}
           ></textarea>
         </div>
-
+        
+        {transcription && (
+          <div style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '8px', borderLeft: '4px solid #3b82f6' }}>
+            <h3 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', color: '#94a3b8' }}>What we heard (Transcription):</h3>
+            <p style={{ fontStyle: 'italic', color: '#f8fafc', fontSize: '0.95rem' }}>"{transcription}"</p>
+          </div>
+        )}
 
         <div className="form-row">
+
           <div className="form-group">
             <label className="form-label" htmlFor="location">City / Branch</label>
             <input

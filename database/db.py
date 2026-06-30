@@ -297,15 +297,16 @@ def record_spam_strike(account_number: str) -> None:
 
 
 def is_user_blocked(account_number: str) -> bool:
-    """If user is flagged 2 times in a single day, block them for 2 days."""
+    """If user is flagged 15 times in a single day, block them for 2 days."""
     with connect() as c:
         rows = _exec(c, 
-            "SELECT created_at FROM spam_penalties WHERE account_number = ? ORDER BY created_at DESC LIMIT 10", 
+            "SELECT created_at FROM spam_penalties WHERE account_number = ? ORDER BY created_at DESC LIMIT 20", 
             (account_number,)
         ).fetchall()
         
-    if len(rows) < 2:
+    if len(rows) < 15:
         return False
+
         
     now = datetime.utcnow()
     strikes_by_day = {}
@@ -322,10 +323,11 @@ def is_user_blocked(account_number: str) -> bool:
             strikes_by_day[day_str] = strikes_by_day.get(day_str, 0) + 1
             
     for count in strikes_by_day.values():
-        if count >= 2:
+        if count >= 15:
             return True
             
     return False
+
 
 
 

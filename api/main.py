@@ -93,6 +93,8 @@ class ComplaintOut(BaseModel):
     draft_response: Optional[str]
     sla: dict[str, Any]
     risk: dict[str, int]
+    transcribed_text: Optional[str] = None
+
 
 
 # --- endpoints ---------------------------------------------------------------
@@ -173,7 +175,13 @@ async def submit_voice_complaint(
     spam_result = check_spam(text)
     if not spam_result.get("is_valid", True):
         db.record_spam_strike(account_number)
-        raise HTTPException(status_code=400, detail=f"Spam detected: {spam_result.get('reason')}")
+        raise HTTPException(
+            status_code=400, 
+            detail={
+                "message": f"Please input a valid banking complaint. Spam filter reason: {spam_result.get('reason')}",
+                "transcribed_text": text
+            }
+        )
         
     payload = {
         "complaint_text": text,
@@ -191,7 +199,8 @@ async def submit_voice_complaint(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Pipeline error: {e}")
         
-    return {"id": new_id, **result}
+    return {"id": new_id, "transcribed_text": text, **result}
+
 
 
 
