@@ -288,7 +288,7 @@ def record_feedback(complaint_id: str, field: str, original_value: str | None,
             "INSERT INTO feedback (complaint_id, field, original_value, "
             "corrected_value, is_correct, created_at) VALUES (?, ?, ?, ?, ?, ?)",
             (complaint_id, field, original_value, corrected_value,
-             1 if is_correct else 0, datetime.utcnow().isoformat(timespec="seconds") + "Z"),
+             bool(is_correct), datetime.utcnow().isoformat(timespec="seconds") + "Z"),
         )
     # If a correction was supplied, also overwrite the complaint row so the
     # dashboard reflects the human's call immediately.
@@ -313,11 +313,11 @@ def feedback_stats() -> dict[str, Any]:
         total = _exec(c, "SELECT COUNT(*) FROM feedback").fetchone()
         total = total['count'] if IS_POSTGRES else total[0]
         
-        correct = _exec(c, "SELECT COUNT(*) FROM feedback WHERE is_correct = 1").fetchone()
+        correct = _exec(c, "SELECT COUNT(*) FROM feedback WHERE is_correct = ?", (True,)).fetchone()
         correct = correct['count'] if IS_POSTGRES else correct[0]
         
         corrections = total - correct
-        by_field = _exec(c, "SELECT field, COUNT(*) FROM feedback WHERE is_correct = 0 GROUP BY field").fetchall()
+        by_field = _exec(c, "SELECT field, COUNT(*) FROM feedback WHERE is_correct = ? GROUP BY field", (False,)).fetchall()
         
         if IS_POSTGRES:
             corrections_dict = {row['field']: row['count'] for row in by_field}

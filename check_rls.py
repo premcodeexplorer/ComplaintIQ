@@ -13,20 +13,20 @@ if result:
 else:
     print("Table complaints not found!")
 
-from datetime import datetime
-
 try:
     cur.execute("""
-        INSERT INTO complaints (
-            id, customer_name, channel, complaint_text, language, date, 
-            location, account_type, amount_involved, status
-        ) VALUES (
-            'PORTAL-12345678', 'Test User', 'portal', 'Test complaint', 'English', 
-            %s, 'Nagpur', 'Savings Account', 0.0, 'open'
-        )
-    """, (datetime.utcnow().isoformat(),))
-    conn.commit()
-    print("Insert succeeded!")
+        SELECT id, channel, customer_name, complaint_text, date, status 
+        FROM complaints 
+        ORDER BY date DESC 
+        LIMIT 5;
+    """)
+    rows = cur.fetchall()
+    print("Latest 5 complaints in Supabase:")
+    for r in rows:
+        print(f"ID: {r[0]} | Channel: {r[1]} | Name: {r[2]} | Date: {r[4]}")
+        print(f"Text snippet: {r[3][:60]}...")
+        print("-" * 40)
 except Exception as e:
-    print("Insert failed with error:")
+    print("Select failed with error:")
     print(e)
+
