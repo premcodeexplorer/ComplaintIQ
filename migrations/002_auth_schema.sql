@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     role        TEXT        NOT NULL DEFAULT 'admin'
                             CHECK (role IN ('admin')),          -- only admins for now
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_login  TIMESTAMPTZ
+    last_login  TIMESTAMPTZ,
+    totp_secret TEXT
 );
 
 -- Index for email look-ups during login

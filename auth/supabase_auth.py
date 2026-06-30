@@ -129,7 +129,7 @@ def get_user_profile(user_id: str) -> dict[str, Any] | None:
         conn = psycopg2.connect(db_url, connect_timeout=10)
         cur  = conn.cursor()
         cur.execute(
-            "SELECT id, email, full_name, role, created_at, last_login "
+            "SELECT id, email, full_name, role, created_at, last_login, totp_secret "
             "FROM user_profiles WHERE id = %s",
             (user_id,),
         )
@@ -149,6 +149,7 @@ def get_user_profile(user_id: str) -> dict[str, Any] | None:
         "role":       row[3],
         "created_at": row[4].isoformat() if row[4] else None,
         "last_login": row[5].isoformat() if row[5] else None,
+        "totp_secret": row[6],
     }
 
 
@@ -170,6 +171,25 @@ def update_last_login(user_id: str) -> None:
         conn.close()
     except Exception:
         pass  # Non-critical — don't break login if this fails
+
+
+def update_totp_secret(user_id: str, secret: str) -> None:
+    """Save the TOTP secret to the user's profile."""
+    import psycopg2
+
+    db_url = os.getenv("DATABASE_URL", "")
+    try:
+        conn = psycopg2.connect(db_url, connect_timeout=10)
+        cur  = conn.cursor()
+        cur.execute(
+            "UPDATE user_profiles SET totp_secret = %s WHERE id = %s",
+            (secret, user_id),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        raise RuntimeError(f"Could not update TOTP secret: {e}") from e
 
 
 # ── Admin creation (called by scripts/create_admin.py) ───────────────────────

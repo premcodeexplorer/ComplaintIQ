@@ -1379,6 +1379,80 @@ def render_login_screen() -> None:
         
         st.markdown("</div>", unsafe_allow_html=True)
 
+def render_mfa_screen() -> None:
+    st.markdown(
+        f"<h1 style='text-align: center; color:{PAL_INK}; margin-top: 10vh;'>"
+        f"<span style='color:{PAL_BLUE}'>Complaint</span>"
+        f"<span style='color:{PAL_RED}'>IQ</span></h1>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(f"<p style='text-align: center; color:{PAL_INK};'>Two-Factor Authentication</p>", unsafe_allow_html=True)
+
+    session = st.session_state.get("admin_session")
+    user_id = session["user"]["id"]
+    email = session["user"]["email"]
+    
+    profile = session.get("profile", {})
+    totp_secret = profile.get("totp_secret")
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown(f"""
+        <div style="background-color:{PAL_SAND}55; padding: 20px; border-radius: 10px; border: 1px solid {PAL_BLUE}33; margin-top: 20px;">
+        """, unsafe_allow_html=True)
+        
+        if not totp_secret:
+            st.info("Please set up Two-Factor Authentication.")
+            if "setup_totp_secret" not in st.session_state:
+                import pyotp
+                st.session_state["setup_totp_secret"] = pyotp.random_base32()
+            
+            secret = st.session_state["setup_totp_secret"]
+            import pyotp
+            totp = pyotp.TOTP(secret)
+            uri = totp.provisioning_uri(name=email, issuer_name="ComplaintIQ Admin")
+            
+            import qrcode
+            import io
+            img = qrcode.make(uri)
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            
+            st.image(buf.getvalue(), width=250, caption="Scan with Google Authenticator or Authy")
+            st.write(f"Or enter code manually: `{secret}`")
+            
+            with st.form("mfa_setup_form"):
+                code = st.text_input("Enter 6-digit code", max_chars=6)
+                submit = st.form_submit_button("Verify & Save", use_container_width=True)
+                if submit:
+                    if totp.verify(code):
+                        from auth.supabase_auth import update_totp_secret
+                        update_totp_secret(user_id, secret)
+                        st.session_state["admin_session"]["profile"]["totp_secret"] = secret
+                        st.session_state["mfa_verified"] = True
+                        st.rerun()
+                    else:
+                        st.error("Invalid code. Try again.")
+        else:
+            with st.form("mfa_verify_form"):
+                st.write("Enter the 6-digit code from your authenticator app.")
+                code = st.text_input("Authenticator Code", max_chars=6)
+                submit = st.form_submit_button("Verify", use_container_width=True)
+                if submit:
+                    import pyotp
+                    totp = pyotp.TOTP(totp_secret)
+                    if totp.verify(code):
+                        st.session_state["mfa_verified"] = True
+                        st.rerun()
+                    else:
+                        st.error("Invalid code. Try again.")
+        
+        if st.button("Logout", key="mfa_logout"):
+            st.session_state.clear()
+            st.rerun()
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+
 
 def main() -> None:
     st.markdown(_GLOBAL_CSS, unsafe_allow_html=True)
@@ -1401,6 +1475,11 @@ def main() -> None:
     # 4. If still not logged in, show login screen
     if not st.session_state.get("admin_session"):
         render_login_screen()
+        return
+
+    # 5. MFA Verification Phase
+    if not st.session_state.get("mfa_verified"):
+        render_mfa_screen()
         return
     st.markdown(
         f"<h1 style='color:{PAL_INK};margin-bottom:0'>"
