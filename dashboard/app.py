@@ -1471,7 +1471,10 @@ def main() -> None:
         return
     
     # 1. Fetch the cookie
-    saved = controller.get("complaintiq_admin_session")
+    try:
+        saved = controller.get("complaintiq_admin_session")
+    except Exception:
+        saved = None
     
     # 2. Sync cookie to session_state if we just loaded the page
     if "admin_session" not in st.session_state:
