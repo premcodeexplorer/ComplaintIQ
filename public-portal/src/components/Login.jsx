@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { LogIn, Key, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { Turnstile } from '@marsidev/react-turnstile';
 
 export default function Login({ onLogin }) {
   const [step, setStep] = useState(1);
   const [accountNumber, setAccountNumber] = useState('');
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState(null);
 
-
+  const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA';
   const handleAccountSubmit = (e) => {
     e.preventDefault();
     if (!accountNumber.trim()) {
@@ -26,6 +28,11 @@ export default function Login({ onLogin }) {
       toast.error('Invalid OTP. Please enter 1234 for demo.');
       return;
     }
+    
+    if (!captchaToken) {
+      toast.error('Please complete the bot verification.');
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -34,7 +41,7 @@ export default function Login({ onLogin }) {
       const response = await fetch(`${apiUrl}/verify-account`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account_number: accountNumber })
+        body: JSON.stringify({ account_number: accountNumber, captcha_token: captchaToken })
       });
       
       const data = await response.json();
@@ -103,7 +110,16 @@ export default function Login({ onLogin }) {
             </div>
           </div>
 
-          <button type="submit" className="btn-primary" disabled={isLoading} style={{ width: '100%' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem', minHeight: '65px' }}>
+            <Turnstile 
+              siteKey={turnstileSiteKey} 
+              onSuccess={(token) => setCaptchaToken(token)} 
+              onError={() => toast.error('Bot verification failed. Please try again.')}
+              onExpire={() => setCaptchaToken(null)}
+            />
+          </div>
+
+          <button type="submit" className="btn-primary" disabled={isLoading || !captchaToken} style={{ width: '100%' }}>
             {isLoading ? (
               <><div className="spinner"></div> Verifying...</>
             ) : (

@@ -31,6 +31,9 @@ from typing import Any, Optional
 
 import os
 import tempfile
+import urllib.request
+import urllib.parse
+import json
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Form, Body
 from fastapi.responses import Response
@@ -121,9 +124,31 @@ def submit_complaint(payload: ComplaintIn) -> dict[str, Any]:
 @app.post("/verify-account")
 def verify_account(payload: dict = Body(...)) -> dict[str, Any]:
     account_number = payload.get("account_number")
+    captcha_token = payload.get("captcha_token")
+
     if not account_number:
         raise HTTPException(status_code=400, detail="account_number is required")
+    
+    if not captcha_token:
+        raise HTTPException(status_code=400, detail="captcha_token is required. Please complete the bot verification.")
         
+    # Verify Cloudflare Turnstile token
+    turnstile_secret = os.getenv("TURNSTILE_SECRET_KEY", "1x0000000000000000000000000000000AA")  # Dummy secret for testing
+    verify_url = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+    data = urllib.parse.urlencode({
+        "secret": turnstile_secret,
+        "response": captcha_token
+    }).encode("utf-8")
+    
+    req = urllib.request.Request(verify_url, data=data)
+    try:
+        with urllib.request.urlopen(req) as response:
+            result = json.loads(response.read().decode())
+            if not result.get("success"):
+                raise HTTPException(status_code=400, detail="Bot verification failed.")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Bot verification service unavailable: {e}")
+
     customer = db.verify_customer(account_number)
     if not customer:
         raise HTTPException(status_code=401, detail="Invalid account number")
