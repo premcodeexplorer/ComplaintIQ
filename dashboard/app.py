@@ -1939,11 +1939,13 @@ def main() -> None:
         st.divider()
         st.subheader("Operational Analytics & Trends")
         render_analytics(df)
-    with tab_fb:
-        render_feedback(df)
-    with tab_draft:
-        st.subheader("Drafted replies")
-        drafted = df.dropna(subset=["draft_response"]).sort_values("date", ascending=False).head(20)
+    elif page == "💬 Correction & Feedback":
+        tab_fb, tab_draft = st.tabs(["Feedback", "Drafts"])
+        with tab_fb:
+            render_feedback(df)
+        with tab_draft:
+            st.subheader("Drafted replies")
+            drafted = df.dropna(subset=["draft_response"]).sort_values("date", ascending=False).head(20)
         if drafted.empty:
             st.info("No drafts yet -- pipeline still running, or all complaints were duplicates.")
         for _, r in drafted.iterrows():
