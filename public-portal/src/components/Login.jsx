@@ -135,7 +135,7 @@ export default function Login({ onLogin }) {
               width: '100%', 
               background: 'transparent', 
               border: 'none', 
-              color: '#94a3b8', 
+              color: 'var(--text-secondary)', 
               marginTop: '1rem',
               cursor: 'pointer',
               textDecoration: 'underline'

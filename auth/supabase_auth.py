@@ -69,6 +69,35 @@ def sign_in(email: str, password: str) -> dict[str, Any]:
 
     Raises RuntimeError on bad credentials or if the user is not an admin.
     """
+    url  = os.getenv("SUPABASE_URL", "")
+    key  = os.getenv("SUPABASE_ANON_KEY", "")
+    
+    if not url or not key:
+        # Mock fallback for offline/demo run
+        if email == "admin@bank.com" and password == "admin123":
+            return {
+                "access_token": "mock_access_token",
+                "refresh_token": "mock_refresh_token",
+                "user": {
+                    "id": "00000000-0000-0000-0000-000000000000",
+                    "email": email,
+                },
+                "profile": {
+                    "id": "00000000-0000-0000-0000-000000000000",
+                    "email": email,
+                    "full_name": "Demo Admin",
+                    "role": "admin",
+                    "created_at": None,
+                    "last_login": None,
+                }
+            }
+        else:
+            raise RuntimeError(
+                "Supabase not configured. To login offline, use:\n"
+                "Email: admin@bank.com\n"
+                "Password: admin123"
+            )
+
     client = get_auth_client()
     try:
         resp = client.auth.sign_in_with_password({"email": email, "password": password})
@@ -154,6 +183,8 @@ def get_user_profile(user_id: str) -> dict[str, Any] | None:
 
 def update_last_login(user_id: str) -> None:
     """Stamp last_login = NOW() for the given user after successful sign-in."""
+    if user_id == "00000000-0000-0000-0000-000000000000":
+        return
     import psycopg2
     from datetime import datetime, timezone
 

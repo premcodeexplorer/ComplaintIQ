@@ -192,7 +192,7 @@ export default function ComplaintForm({ user }) {
             )}
 
             {audioBlob && (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '0.5rem 1rem', borderRadius: '8px' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#f1f5f9', padding: '0.5rem 1rem', borderRadius: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <CheckCircle2 size={18} /> Voice Recorded ({formatTime(recordingTime)})
@@ -220,9 +220,9 @@ export default function ComplaintForm({ user }) {
         </div>
         
         {transcription && (
-          <div style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '8px', borderLeft: '4px solid #3b82f6' }}>
-            <h3 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', color: '#94a3b8' }}>What we heard (Transcription):</h3>
-            <p style={{ fontStyle: 'italic', color: '#f8fafc', fontSize: '0.95rem' }}>"{transcription}"</p>
+          <div style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: '#f1f5f9', borderRadius: '8px', borderLeft: '4px solid #3b82f6' }}>
+            <h3 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>What we heard (Transcription):</h3>
+            <p style={{ fontStyle: 'italic', color: 'var(--text-primary)', fontSize: '0.95rem' }}>"{transcription}"</p>
           </div>
         )}
 
