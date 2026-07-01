@@ -11,6 +11,8 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 *.png
+*.pptx
+*.pdf
 
 # Virtual envs
 .venv/

@@ -185,12 +185,15 @@ async def submit_voice_complaint(
             f.write(content)
             
         client = get_client()
-        with open(path, "rb") as f:
-            transcription = client.audio.transcriptions.create(
-                file=(audio.filename or "audio.webm", f.read()),
-                model="whisper-large-v3",
-                response_format="json",
-            )
+        try:
+            with open(path, "rb") as f:
+                transcription = client.audio.transcriptions.create(
+                    file=(audio.filename or "audio.webm", f.read()),
+                    model="whisper-large-v3",
+                    response_format="json",
+                )
+        except Exception as api_err:
+            raise HTTPException(status_code=503, detail=f"Audio transcription service error (Rate Limit or API issue): {api_err}")
             
         text = transcription.text
     finally:
