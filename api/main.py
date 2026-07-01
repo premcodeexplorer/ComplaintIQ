@@ -201,7 +201,11 @@ async def submit_voice_complaint(
         os.unlink(path)
         
     # Check spam
-    spam_result = check_spam(text)
+    try:
+        spam_result = check_spam(text)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Spam filter AI service error: {e}")
+
     if not spam_result.get("is_valid", True):
         db.record_spam_strike(account_number)
         raise HTTPException(
@@ -222,8 +226,8 @@ async def submit_voice_complaint(
         "amount_involved": amount_involved,
     }
     
-    new_id = ingest_new_complaint(payload)
     try:
+        new_id = ingest_new_complaint(payload)
         result = process_one_streaming(new_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Pipeline error: {e}")
