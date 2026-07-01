@@ -1939,6 +1939,16 @@ def main() -> None:
         st.divider()
         st.subheader("Operational Analytics & Trends")
         render_analytics(df)
+    elif page == "📥 Operations Workspace":
+        view, selected_row = render_live_feed(df)
+        if selected_row is not None:
+            render_selected_complaint_workspace(selected_row, df)
+    elif page == "👤 Customer Insights":
+        render_customer_view(df)
+    elif page == "🗺️ Geospatial Intel":
+        render_india_map(df)
+    elif page == "⚙️ AI Diagnostics":
+        render_model_performance()
     elif page == "💬 Correction & Feedback":
         tab_fb, tab_draft = st.tabs(["Feedback", "Drafts"])
         with tab_fb:
