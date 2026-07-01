@@ -513,7 +513,7 @@ def chat(prompt: str, **kwargs) -> str:
     resp = client.chat.completions.create(...)
     latency_ms = round((time.monotonic() - start) * 1000)
     tokens = resp.usage.total_tokens
-    cost_usd = tokens * 0.00000059  # llama-3.3-70b on Groq pricing
+    cost_usd = tokens * 0.00000059  # gpt-oss-120b on Groq pricing
 
     logger.info("groq_call", extra={
         "model": kwargs.get("model", DEFAULT_MODEL),

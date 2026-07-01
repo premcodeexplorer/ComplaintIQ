@@ -25,9 +25,9 @@ def check_spam(text: str) -> dict[str, Any]:
     """Check if the complaint text is valid or spam."""
     client = get_client()
     
-    # We use llama-3.3-70b-versatile for high reasoning capability
+    # We use gpt-oss-120b for high reasoning capability
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="gpt-oss-120b",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": f"User Input:\n{text}"}

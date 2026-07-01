@@ -13,7 +13,7 @@ ComplaintIQ ingests complaints from every channel (email, WhatsApp, Twitter, cal
 
 | # | Agent | Tech | Output |
 |---|-------|------|--------|
-| 1 | **Intake** | Groq llama-3.3-70b-versatile | Structured fields from raw text (English / Hindi / Marathi) |
+| 1 | **Intake** | Groq gpt-oss-120b | Structured fields from raw text (English / Hindi / Marathi) |
 | 2 | **Classifier** | Groq LLM | category / severity / sentiment |
 | 3 | **Duplicate Detector** | `sentence-transformers all-MiniLM-L6-v2` + ChromaDB cosine | duplicate flag + similarity (per-customer) |
 | 4 | **Response Drafter** | Groq LLM | Policy-compliant reply in customer's language |
@@ -43,7 +43,7 @@ If `severity ∈ {Low, Medium}` AND `sentiment == Polite` AND category has a sta
 ## Stack
 
 - Python 3.11
-- **LLM** — Groq API, `llama-3.3-70b-versatile`
+- **LLM** — Groq API, `gpt-oss-120b`
 - **Embeddings** — `sentence-transformers all-MiniLM-L6-v2`
 - **Vector store** — ChromaDB (persistent, local)
 - **Classical ML** — scikit-learn (RF, GBM, LogReg, KMeans, TF-IDF, Stacking) + XGBoost + LightGBM
@@ -118,7 +118,7 @@ pip install -r requirements.txt
 #    Create a file named `.env` in the project root with these two lines:
 #
 #       GROQ_API_KEY=gsk_your_key_here
-#       GROQ_MODEL=llama-3.3-70b-versatile
+#       GROQ_MODEL=gpt-oss-120b
 ```
 
 Get a free Groq key at https://console.groq.com.
@@ -210,7 +210,7 @@ python -m agents.root_cause           # detect systemic clusters
 3. In the app's **Secrets** add:
    ```toml
    GROQ_API_KEY = "gsk_..."
-   GROQ_MODEL = "llama-3.3-70b-versatile"
+   GROQ_MODEL = "gpt-oss-120b"
    ```
 4. Streamlit Cloud will install `requirements.txt`, then start the app.
 

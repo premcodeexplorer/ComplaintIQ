@@ -39,7 +39,7 @@ job well, then hands its output to the next:
 
 | Family | Agents | Engine | Good at |
 |--------|--------|--------|---------|
-| **Language agents** | Intake, Classifier, Response Drafter | LLM (Groq, Llama-3.3-70B) | understanding & generating human text |
+| **Language agents** | Intake, Classifier, Response Drafter | LLM (Groq, gpt-oss-120b) | understanding & generating human text |
 | **Prediction agents** | Duplicate Detector, SLA Monitor, Root Cause | ML / vector math | numbers, similarity, patterns |
 
 **The golden rule of the whole system: every agent has a deterministic fallback.**

@@ -44,7 +44,7 @@ Every complaint flows through 9 stages (6 LLM/AI agents + 3 ML second-opinions):
 
 | # | Agent | Technology | Output |
 |---|-------|-----------|--------|
-| 1 | **Intake** | Groq `llama-3.3-70b-versatile` | Structured fields from raw text (EN / HI / MR) |
+| 1 | **Intake** | Groq `gpt-oss-120b` | Structured fields from raw text (EN / HI / MR) |
 | 2 | **Classifier** | Groq LLM | category / severity / sentiment |
 | 3 | **Duplicate Detector** | `sentence-transformers all-MiniLM-L6-v2` + vector search | duplicate flag + similarity score (per-customer) |
 | 4 | **Response Drafter** | Groq LLM | policy-compliant reply in the customer's language |
@@ -107,7 +107,7 @@ consuming an agent. Duplicates → **Auto-Resolved (Duplicate)**. Together this 
 
 ### Stack
 - **Language:** Python 3.11 (backend), React 19 + Vite (public portal)
-- **LLM:** Groq API, `llama-3.3-70b-versatile`
+- **LLM:** Groq API, `gpt-oss-120b`
 - **Embeddings:** `sentence-transformers all-MiniLM-L6-v2` (local, 384-dim)
 - **Vector store:** **pgvector** (in Postgres) — was local ChromaDB
 - **Classical ML:** scikit-learn (RF, GBM, LogReg, KMeans, TF-IDF, Stacking) + XGBoost + LightGBM

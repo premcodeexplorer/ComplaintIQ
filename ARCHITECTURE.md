@@ -47,7 +47,7 @@ flowchart TD
         ORCH[Pipeline Orchestrator <br/> Synchronous/Streaming]:::engine
         
         %% 6 Agents
-        A1[1. Intake Agent <br/> Groq Llama-3.3]:::engine
+        A1[1. Intake Agent <br/> Groq gpt-oss-120b]:::engine
         A2[2. Classifier Agent <br/> Groq LLM]:::engine
         A3[3. Duplicate Detector <br/> Sentence Transformers]:::engine
         A4[4. Response Drafter <br/> Groq LLM]:::engine
@@ -120,7 +120,7 @@ This tier captures raw complaints from multiple omni-channel sources and forward
 ### 3. Complaint Intelligence Pipeline (Core Engine)
 The orchestrator drives each complaint through a sequence of 6 AI-powered agents.
 * **Pipeline Orchestrator**: Manages the flow of data between the API, the 6 AI agents, the ML backfill processes, and the database. It handles logic like **Auto-Resolution** for low severity, standard complaints, or duplicates to save agent execution cycles.
-* **Agent 1: Intake**: Powered by Groq's `llama-3.3-70b-versatile`, it extracts structured fields (customer details, language, channel) from unstructured, multilingual raw text (English/Hindi/Marathi).
+* **Agent 1: Intake**: Powered by Groq's `gpt-oss-120b`, it extracts structured fields (customer details, language, channel) from unstructured, multilingual raw text (English/Hindi/Marathi).
 * **Agent 2: Classifier**: An LLM-based agent that determines the primary category, severity level, and initial sentiment of the complaint.
 * **Agent 3: Duplicate Detector**: Utilizes `sentence-transformers all-MiniLM-L6-v2` to create embeddings and queries ChromaDB (using cosine similarity) to flag duplicate complaints from the same customer.
 * **Agent 4: Response Drafter**: Leverages the Groq LLM to automatically generate a policy-compliant response tailored to the customer's preferred language.

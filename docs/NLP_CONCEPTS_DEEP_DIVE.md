@@ -20,7 +20,7 @@ ComplaintIQ uses **two generations of NLP** side by side:
 | Generation | What it is | Where we use it |
 |------------|-----------|-----------------|
 | **Classical NLP** | hand-built features + small ML models | TF-IDF category model, regex PII masking |
-| **Neural / modern NLP** | deep learning on text | embeddings (MiniLM), RoBERTa sentiment, the Llama-3.3 LLM |
+| **Neural / modern NLP** | deep learning on text | embeddings (MiniLM), RoBERTa sentiment, the gpt-oss-120b LLM |
 
 A core selling point: **we combine both** — the LLM does the heavy understanding, and
 classical models cross-check it cheaply.
@@ -164,7 +164,7 @@ hidden across 47 separate tickets.
 > **Text classification** = assign a text to one of a fixed set of categories.
 
 **Where in our project — two complementary ways:**
-1. **LLM classifier (Agent 2)** — the Llama model reads the complaint and outputs
+1. **LLM classifier (Agent 2)** — the gpt-oss-120b model reads the complaint and outputs
    category / severity / sentiment with a rubric in the prompt.
 2. **TF-IDF + Logistic Regression (`ml_category.py`)** — a classical model gives a
    **second opinion** on the category. Agree → "High Confidence"; disagree → "Needs
@@ -284,7 +284,7 @@ rule-based NLP.
 > token. With the right prompt it can classify, extract, summarize, translate, and write
 > — all without task-specific training (**zero-shot / few-shot**).
 
-**Where in our project:** **Groq-hosted `llama-3.3-70b-versatile`** powers Agents 1, 2,
+**Where in our project:** **Groq-hosted `gpt-oss-120b`** powers Agents 1, 2,
 4. One model, many jobs, via different prompts.
 
 Key prompting concepts we use:

@@ -12,7 +12,7 @@ Two Mermaid diagrams for the final-round presentation:
 
 | Colour | Meaning |
 |--------|---------|
-| 🟣 Purple | **LLM** — Groq `llama-3.3-70b` (language tasks: intake, classify, draft) |
+| 🟣 Purple | **LLM** — Groq gpt-oss-120b (language tasks: intake, classify, draft) |
 | 🔵 Cyan | **Trained ML** — prediction tasks (duplicate, SLA, root-cause, priority) |
 | 🟢 Teal | **ML cross-check** — independently audits the LLM's category & sentiment |
 | 🟠 Orange | **Business logic** — risk score + auto-resolution |

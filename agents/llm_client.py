@@ -19,7 +19,7 @@ from . import pii
 
 load_dotenv()
 
-DEFAULT_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+DEFAULT_MODEL = os.getenv("GROQ_MODEL", "gpt-oss-120b")
 
 # PII masking is ON by default. Set PII_MASKING=0 to disable (e.g. to show
 # judges the raw-vs-masked difference live).
