@@ -16,7 +16,10 @@ function App() {
       
       <div className="app-container">
         <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-          <h1 className="title">ComplaintIQ Portal</h1>
+          <h1 className="title">
+            <span style={{ color: '#3b82f6' }}>Complaint</span>
+            <span style={{ color: '#dc2626' }}>IQ</span> Portal
+          </h1>
           <p className="subtitle">Secure, Anonymous, and Direct Communication Channel</p>
           {user && (
             <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '0.5rem' }}>

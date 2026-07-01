@@ -44,12 +44,22 @@ from sklearn.model_selection import (GridSearchCV, StratifiedKFold,
                                      cross_val_score, train_test_split)
 from sklearn.preprocessing import OneHotEncoder
 
-# imblearn pipeline lets SMOTE participate in fit() without breaking predict()
-from imblearn.pipeline import Pipeline as ImbPipeline
-from imblearn.over_sampling import SMOTE
+# Conditional imports for imblearn and lightgbm to prevent training failure on systems without them.
+try:
+    from imblearn.pipeline import Pipeline as ImbPipeline
+    from imblearn.over_sampling import SMOTE
+    HAS_IMBLEARN = True
+except ImportError:
+    from sklearn.pipeline import Pipeline as ImbPipeline
+    HAS_IMBLEARN = False
 
 from xgboost import XGBClassifier
-from lightgbm import LGBMClassifier
+
+try:
+    from lightgbm import LGBMClassifier
+    HAS_LIGHTGBM = True
+except ImportError:
+    HAS_LIGHTGBM = False
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -93,7 +103,7 @@ def _load_sla_rules() -> dict:
 # --- feature engineering ------------------------------------------------------
 
 def engineer_features(df: pd.DataFrame, today: date | None = None) -> pd.DataFrame:
-    today_ts = pd.Timestamp(today or TODAY)
+    today_ts = pd.Timestamp(today or TODAY).tz_localize(None)
     df = df.copy()
     df["complaint_text"] = df["complaint_text"].fillna("")
     df["amount_involved"] = df["amount_involved"].fillna(0).astype(float)
@@ -101,7 +111,7 @@ def engineer_features(df: pd.DataFrame, today: date | None = None) -> pd.DataFra
     df["complaint_word_count"] = (df["complaint_text"]
                                   .str.split().str.len().fillna(0).astype(int))
 
-    dates = pd.to_datetime(df["date"], errors="coerce")
+    dates = pd.to_datetime(df["date"], errors="coerce").dt.tz_localize(None)
     df["day_of_week"] = dates.dt.weekday.fillna(0).astype(int)
     df["is_weekend_filed"] = (df["day_of_week"] >= 5).astype(int)
     df["is_high_amount"] = (df["amount_involved"] >= 25000).astype(int)
@@ -162,11 +172,11 @@ def realistic_labels(df: pd.DataFrame, today: date | None = None) -> np.ndarray:
         - status is resolved/auto-resolved AND resolved_at - date > sla_days
        Otherwise 0.
     """
-    today_ts = pd.Timestamp(today or TODAY)
-    dates = pd.to_datetime(df["date"], errors="coerce")
+    today_ts = pd.Timestamp(today or TODAY).tz_localize(None)
+    dates = pd.to_datetime(df["date"], errors="coerce").dt.tz_localize(None)
     days_since = (today_ts - dates).dt.days.fillna(0)
     status = df.get("status", pd.Series(["open"] * len(df))).fillna("open")
-    resolved_at = pd.to_datetime(df.get("resolved_at"), errors="coerce")
+    resolved_at = pd.to_datetime(df.get("resolved_at"), errors="coerce").dt.tz_localize(None)
     resolution_days = (resolved_at - dates).dt.days
 
     sla = df["days_to_sla"].astype(int)
@@ -216,14 +226,14 @@ def _preprocessor() -> ColumnTransformer:
 
 def _make_pipeline(estimator, *, use_smote: bool = True) -> ImbPipeline:
     steps = [("pre", _preprocessor())]
-    if use_smote:
+    if use_smote and HAS_IMBLEARN:
         steps.append(("smote", SMOTE(random_state=42, k_neighbors=5)))
     steps.append(("clf", estimator))
     return ImbPipeline(steps)
 
 
 def build_candidates() -> dict[str, ImbPipeline]:
-    return {
+    candidates = {
         "RandomForest": _make_pipeline(RandomForestClassifier(
             n_estimators=400, max_depth=12, min_samples_leaf=2,
             class_weight="balanced", random_state=42, n_jobs=-1,
@@ -237,12 +247,14 @@ def build_candidates() -> dict[str, ImbPipeline]:
             objective="binary:logistic", eval_metric="auc",
             tree_method="hist", n_jobs=-1, random_state=42,
         )),
-        "LightGBM": _make_pipeline(LGBMClassifier(
+    }
+    if HAS_LIGHTGBM:
+        candidates["LightGBM"] = _make_pipeline(LGBMClassifier(
             n_estimators=500, num_leaves=31, max_depth=-1,
             learning_rate=0.05, min_child_samples=10, subsample=0.9,
             colsample_bytree=0.9, random_state=42, n_jobs=-1, verbose=-1,
-        )),
-    }
+        ))
+    return candidates
 
 
 def build_stacking() -> ImbPipeline:
@@ -255,10 +267,12 @@ def build_stacking() -> ImbPipeline:
             subsample=0.9, colsample_bytree=0.9,
             objective="binary:logistic", eval_metric="auc",
             tree_method="hist", n_jobs=-1, random_state=42)),
-        ("lgb", LGBMClassifier(
-            n_estimators=400, num_leaves=31, learning_rate=0.05,
-            random_state=42, n_jobs=-1, verbose=-1)),
     ]
+    if HAS_LIGHTGBM:
+        base.append(("lgb", LGBMClassifier(
+            n_estimators=400, num_leaves=31, learning_rate=0.05,
+            random_state=42, n_jobs=-1, verbose=-1)))
+            
     meta = LogisticRegression(max_iter=2000, class_weight="balanced", C=1.0)
     return _make_pipeline(StackingClassifier(
         estimators=base, final_estimator=meta,

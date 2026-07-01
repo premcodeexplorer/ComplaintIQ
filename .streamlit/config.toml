@@ -1,9 +1,11 @@
 [theme]
+# Professional Bank Theme - Clean, Modern, Reputed Brand Look
+# Using Streamlit native feel with subtle professional accents
 base = "light"
-primaryColor = "#7DAACB"
-backgroundColor = "#FFFDEB"
-secondaryBackgroundColor = "#E8DBB3"
-textColor = "#1A2B3A"
+primaryColor = "#1E3A5F"           # Deep navy - trust, professionalism
+backgroundColor = "#FAFBFC"        # Clean white/gray - Streamlit native
+secondaryBackgroundColor = "#F1F3F6" # Subtle light gray - cards/sidebar
+textColor = "#1F2937"              # Dark slate - easy reading
 font = "sans serif"
 
 [server]
